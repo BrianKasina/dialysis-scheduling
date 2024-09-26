@@ -9,4 +9,6 @@ type Patient struct {
     Gender           string `json:"gender" db:"gender"`
     EmergencyContact string `json:"emergency_contact" db:"emergency_contact"`
     PaymentDetailsID int    `json:"payment_details_id" db:"payment_details_id"`
+    PaymentName      string `json:"payment_name,omitempty" db:"payment_name"` // Added field for join
+
 }

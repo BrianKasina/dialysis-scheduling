@@ -12,6 +12,14 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/utils"
 )
 
+// Middleware to set Content-Type header
+func setJSONContentType(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        next.ServeHTTP(w, r)
+    })
+}
+
 func main() {
     // Load environment variables from .env file
     err := godotenv.Load()
@@ -39,6 +47,9 @@ func main() {
 
     // Initialize router
     router := mux.NewRouter()
+
+	// Apply middleware to set Content-Type header
+    router.Use(setJSONContentType)
 
     allowedEndpoints := map[string]bool{
         "patients":               true,

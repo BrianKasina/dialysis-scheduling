@@ -5,6 +5,7 @@ import (
     "net/http"
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
+	"github.com/BrianKasina/dialysis-scheduling/models"
     "database/sql"
     "github.com/gorilla/mux"
 )
@@ -34,6 +35,17 @@ func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request)
         patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments()
     case "withNotifications":
         patients, err = pc.PatientGateway.GetPatientsWithNotifications()
+	case "search":
+        name := r.URL.Query().Get("name")
+        if name == "" {
+            patients, err = pc.PatientGateway.GetPatients()
+			if err != nil {
+				utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to fetch patients")
+				return
+			}
+            return
+        }
+        patients, err = pc.PatientGateway.SearchPatients(name)
     default:
         patients, err = pc.PatientGateway.GetPatients()
     }
@@ -48,7 +60,7 @@ func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request)
 // Handle POST requests for patients
 func (pc *PatientController) CreatePatient(w http.ResponseWriter, r *http.Request) {
     // Extract patient data from request body
-    var patient gateways.Patient
+    var patient models.Patient
     err := json.NewDecoder(r.Body).Decode(&patient)
     if err != nil {
         utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
@@ -68,7 +80,7 @@ func (pc *PatientController) CreatePatient(w http.ResponseWriter, r *http.Reques
 // Handle PUT requests for patients
 func (pc *PatientController) UpdatePatient(w http.ResponseWriter, r *http.Request) {
     // Extract patient data from request body
-    var patient gateways.Patient
+    var patient models.Patient
     err := json.NewDecoder(r.Body).Decode(&patient)
     if err != nil {
         utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
