@@ -68,4 +68,19 @@ func (pc *PatientController) UpdatePatient(w http.ResponseWriter, r *http.Reques
 }
 
 func (pc *PatientController) DeletePatient(w http.ResponseWriter, r *http.Request) {
+	// Extract patient ID from request URL
+	patientID := r.URL.Query().Get("id")
+	if patientID == "" {
+		utils.ErrorHandler(w, http.StatusBadRequest, nil, "Missing patient ID")
+		return
+	}
+
+	// Delete patient in DB
+	err := pc.PatientGateway.DeletePatient(patientID)
+	if err != nil {
+		utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to delete patient")
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"message": "Patient deleted successfully"})
+}
 	
