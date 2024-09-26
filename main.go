@@ -9,7 +9,9 @@ import (
 	"github.com/gorilla/mux"
 	"errors"
 	"github.com/joho/godotenv"
-	"github.com/BrianKasina/dialysis-scheduling/utils" // Import the new utilities
+	"github.com/BrianKasina/dialysis-scheduling/utils" 
+	"github.com/BrianKasina/dialysis-scheduling/controllers"
+	"github.com/BrianKasina/dialysis-scheduling/gateways"// Import the new utilities
 
 )
 
@@ -93,8 +95,27 @@ func main() {
 
 // Handle GET requests
 func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, db *sql.DB) {
-	// Logic for GET
-	json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	switch endpoint {
+	case "patients":
+		// Logic for GET patients
+		json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	case "hospital_staff":
+		// Logic for GET hospital_staff
+		json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	case "dialysis_appointments":
+		// Logic for GET dialysis_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	case "nephrologist_appointments":
+		// Logic for GET nephrologist_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	case "payment_details":
+		// Logic for GET payment_details
+		json.NewEncoder(w).Encode(map[string]string{"message": "GET request for " + endpoint})
+	default:
+		// Default response
+		//indicate wrong endpoint
+		http.Error(w, "Invalid endpoint", http.StatusNotFound)
+	}
 }
 
 // Handle POST requests
@@ -106,18 +127,76 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, 
 	// 	ErrorHandler(w, r, http.StatusInternalServerError, "Failed to create JWT")
 	// 	return
 	// }
-
-	json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint /*, "token": token*/})
+	switch endpoint {
+	case "patients":
+		// Logic for POST patients
+		json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint})
+	case "hospital_staff":
+		// Logic for POST hospital_staff
+		json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint})
+	case "dialysis_appointments":
+		// Logic for POST dialysis_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint})
+	case "nephrologist_appointments":
+		// Logic for POST nephrologist_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint})
+	case "payment_details":
+		// Logic for POST payment_details
+		json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint})
+	default:
+		// Default response
+		//indicate wrong endpoint
+		http.Error(w, "Invalid endpoint", http.StatusNotFound)
+	}
 }
 
 // Handle PUT requests
 func handlePutRequest(w http.ResponseWriter, r *http.Request, endpoint string, db *sql.DB) {
-	// Logic for PUT
-	json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+  switch endpoint {
+	case "patients":
+		// Logic for PUT patients
+		json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+	case "hospital_staff":
+		// Logic for PUT hospital_staff
+		json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+	case "dialysis_appointments":
+		// Logic for PUT dialysis_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+	case "nephrologist_appointments":
+		// Logic for PUT nephrologist_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+	case "payment_details":
+		// Logic for PUT payment_details
+		json.NewEncoder(w).Encode(map[string]string{"message": "PUT request for " + endpoint})
+	default:
+		// Default response
+		//indicate wrong endpoint
+		http.Error(w, "Invalid endpoint", http.StatusNotFound)
+  }
 }
 
 // Handle DELETE requests
 func handleDeleteRequest(w http.ResponseWriter, r *http.Request, endpoint string, db *sql.DB) {
-	// Logic for DELETE
-	json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+
+	switch endpoint {
+	case "patients":
+		// Logic for DELETE patients
+		json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+	case "hospital_staff":
+		// Logic for DELETE hospital_staff
+		json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+	case "dialysis_appointments":
+		// Logic for DELETE dialysis_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+	case "nephrologist_appointments":
+		// Logic for DELETE nephrologist_appointments
+		json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+	case "payment_details":
+		// Logic for DELETE payment_details
+		json.NewEncoder(w).Encode(map[string]string{"message": "DELETE request for " + endpoint})
+	default:
+		// Default response
+		//indicate wrong endpoint
+		http.Error(w, "Invalid endpoint", http.StatusNotFound)
+	}
 }

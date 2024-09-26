@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"net/http"
-	"runtime/debug"
+	// "runtime/debug"
 )
 
 // ErrorHandler function for handling errors and exceptions
@@ -13,6 +13,6 @@ func ErrorHandler(w http.ResponseWriter, statusCode int, err error, message stri
 		"code":  statusCode,
 		"error": err.Error(),
 		"message": message,
-		"stack":   string(debug.Stack()), // Include stack trace for debugging
+		// "stack":   string(debug.Stack()), // Include stack trace for debugging
 	})
 }
