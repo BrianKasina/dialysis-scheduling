@@ -43,24 +43,26 @@ func main() {
     defer db.Close()
 
     // Initialize controllers
-    patientController := controllers.NewPatientController(db)
+    controllersMap := map[string]interface{}{
+        "patients":     controllers.NewPatientController(db),
+        "appointments": controllers.NewAppointmentController(db),
+    }
 
     // Initialize router
     router := mux.NewRouter()
 
-	// Apply middleware to set Content-Type header
+    // Apply middleware to set Content-Type header
     router.Use(setJSONContentType)
 
     allowedEndpoints := map[string]bool{
-        "patients":               true,
-        "hospital_staff":         true,
-        "dialysis_appointments":  true,
-        "nephrologist_appointments": true,
-        "posts":                  true,
-        "system_admins":          true,
-        "notifications":          true,
-        "patient_history":        true,
-        "payment_details":        true,
+        "patients":        true,
+        "hospital_staff":  true,
+        "appointments":    true,
+        "posts":           true,
+        "system_admins":   true,
+        "notifications":   true,
+        "patient_history": true,
+        "payment_details": true,
     }
 
     // Define routes
@@ -70,20 +72,20 @@ func main() {
 
         // Check if the endpoint is valid and allowed
         if _, ok := allowedEndpoints[endpoint]; !ok {
-            utils.ErrorHandler(w, http.StatusNotFound, errors.New("endpoint not found"), "Endpoint not found")
+            utils.ErrorHandler(w, http.StatusNotFound, err, "Endpoint not found")
             return
         }
 
-        // Handle GET, POST, PUT, DELETE requests
+        // Dispatch the request to the appropriate controller method
         switch r.Method {
         case http.MethodGet:
-            handleGetRequest(w, r, endpoint, patientController)
+            handleGetRequest(w, r, endpoint, controllersMap)
         case http.MethodPost:
-            handlePostRequest(w, r, endpoint, patientController)
+            handlePostRequest(w, r, endpoint, controllersMap)
         case http.MethodPut:
-            handlePutRequest(w, r, endpoint, patientController)
+            handlePutRequest(w, r, endpoint, controllersMap)
         case http.MethodDelete:
-            handleDeleteRequest(w, r, endpoint, patientController)
+            handleDeleteRequest(w, r, endpoint, controllersMap)
         default:
             utils.ErrorHandler(w, http.StatusMethodNotAllowed, errors.New("invalid method"), "Method not allowed")
         }
@@ -94,40 +96,48 @@ func main() {
 }
 
 // Handle GET requests
-func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, patientController *controllers.PatientController) {
+func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, controllersMap map[string]interface{}) {
     switch endpoint {
     case "patients":
-        patientController.GetPatients(w, r)
+        controllersMap["patients"].(*controllers.PatientController).GetPatients(w, r)
+    case "appointments":
+        controllersMap["appointments"].(*controllers.AppointmentController).GetAppointments(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
 }
 
 // Handle POST requests
-func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, patientController *controllers.PatientController) {
+func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, controllersMap map[string]interface{}) {
     switch endpoint {
     case "patients":
-        patientController.CreatePatient(w, r)
+        controllersMap["patients"].(*controllers.PatientController).CreatePatient(w, r)
+    case "appointments":
+        controllersMap["appointments"].(*controllers.AppointmentController).CreateAppointment(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
 }
 
 // Handle PUT requests
-func handlePutRequest(w http.ResponseWriter, r *http.Request, endpoint string, patientController *controllers.PatientController) {
+func handlePutRequest(w http.ResponseWriter, r *http.Request, endpoint string, controllersMap map[string]interface{}) {
     switch endpoint {
     case "patients":
-        patientController.UpdatePatient(w, r)
+        controllersMap["patients"].(*controllers.PatientController).UpdatePatient(w, r)
+    case "appointments":
+        controllersMap["appointments"].(*controllers.AppointmentController).UpdateAppointment(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
 }
 
 // Handle DELETE requests
-func handleDeleteRequest(w http.ResponseWriter, r *http.Request, endpoint string, patientController *controllers.PatientController) {
+func handleDeleteRequest(w http.ResponseWriter, r *http.Request, endpoint string, controllersMap map[string]interface{}) {
     switch endpoint {
     case "patients":
-        patientController.DeletePatient(w, r)
+        controllersMap["patients"].(*controllers.PatientController).DeletePatient(w, r)
+    case "appointments":
+        controllersMap["appointments"].(*controllers.AppointmentController).DeleteAppointment(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
