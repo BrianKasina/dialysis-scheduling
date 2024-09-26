@@ -21,7 +21,7 @@ func AuthorizationMiddleware(next http.Handler, secretKey string, db *sql.DB, re
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			ErrorHandler(w, http.StatusUnauthorized, errors.New("missing authorization header"))
+			ErrorHandler(w, http.StatusUnauthorized, errors.New("missing authorization header"), "Authorization header is required")
 			return
 		}
 
@@ -33,19 +33,19 @@ func AuthorizationMiddleware(next http.Handler, secretKey string, db *sql.DB, re
 		})
 
 		if err != nil || !token.Valid {
-			ErrorHandler(w, http.StatusUnauthorized, errors.New("invalid token"))
+			ErrorHandler(w, http.StatusUnauthorized, errors.New("invalid token"), "Token is invalid or expired")
 			return
 		}
 
 		// Validate the session in the database
 		if !validateSession(claims.ID, claims.Type, db) {
-			ErrorHandler(w, http.StatusUnauthorized, errors.New("session validation failed"))
+			ErrorHandler(w, http.StatusUnauthorized, errors.New("session validation failed"), "Session is invalid or expired")
 			return
 		}
 
 		// Check role if required
 		if requiredRole != "" && !hasRole(claims.ID, requiredRole, db) {
-			ErrorHandler(w, http.StatusForbidden, errors.New("insufficient role privileges"))
+			ErrorHandler(w, http.StatusForbidden, errors.New("insufficient role privileges"), "User does not have the required role")
 			return
 		}
 

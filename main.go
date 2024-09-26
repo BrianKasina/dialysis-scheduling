@@ -6,20 +6,26 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 	"github.com/gorilla/mux"
-	_ "github.com/go-sql-driver/mysql"
-	"dialysis-scheduling/utils" // Import the new utilities
+	"errors"
+	"github.com/joho/godotenv"
+	"github.com/BrianKasina/dialysis-scheduling/utils" // Import the new utilities
+
 )
 
 func main() {
+	// Load environment variables from .env file
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatal("Error loading .env file")
+    }
 	// Load environment variables
 	dbHost := os.Getenv("MYSQL_HOST")
 	dbPort := os.Getenv("MYSQL_PORT")
 	dbName := os.Getenv("MYSQL_DATABASE")
 	dbUser := os.Getenv("MYSQL_USER")
 	dbPass := os.Getenv("MYSQL_PASSWORD")
-	secretKey := os.Getenv("JWT_SECRET_KEY")
+	// secretKey := os.Getenv("JWT_SECRET_KEY")
 
 	// Initialize database connection
 	database := utils.NewDatabase(dbHost+":"+dbPort, dbName, dbUser, dbPass)
@@ -32,11 +38,28 @@ func main() {
 	// // Initialize JWT utility
 	// jwtUtil := utils.NewJWTUtil(secretKey)
 
+	// Initialize the error handler utility 
+	ErrorHandler := func(w http.ResponseWriter, statusCode int, err error, message string) {
+		utils.ErrorHandler(w, statusCode, err, message)
+	}
+
 	// Initialize router
 	router := mux.NewRouter()
 
 	// // Add CORS middleware
 	// router.Use(CorsMiddleware)
+
+	allowedEndpoints := map[string]bool{
+		"patients":               true,
+		"hospital_staff":         true,
+		"dialysis_appointments":  true,
+		"nephrologist_appointments": true,
+		"posts":                  true,
+		"system_admins":          true,
+		"notifications":          true,
+		"patient_history":        true,
+		"payment_details":        true,
+	}
 
 	// Define routes
 	router.HandleFunc("/{endpoint}", func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +68,7 @@ func main() {
 
 		// Check if the endpoint is valid and allowed
 		if _, ok := allowedEndpoints[endpoint]; !ok {
-			ErrorHandler(w, r, http.StatusNotFound, "Endpoint not found")
+			ErrorHandler(w, http.StatusNotFound, errors.New("endpoint not found"), "Endpoint not found")
 			return
 		}
 
@@ -54,13 +77,13 @@ func main() {
 		case http.MethodGet:
 			handleGetRequest(w, r, endpoint, db)
 		case http.MethodPost:
-			handlePostRequest(w, r, endpoint, db, jwtUtil)
+			handlePostRequest(w, r, endpoint, db)
 		case http.MethodPut:
 			handlePutRequest(w, r, endpoint, db)
 		case http.MethodDelete:
 			handleDeleteRequest(w, r, endpoint, db)
 		default:
-			ErrorHandler(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+			ErrorHandler(w, http.StatusMethodNotAllowed, errors.New("invalid method"),"Method not allowed")
 		}
 
 	}).Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete)
@@ -75,7 +98,7 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, d
 }
 
 // Handle POST requests
-func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, db *sql.DB, jwtUtil *utils.JWTUtil) {
+func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, db *sql.DB) {
 	// Logic for POST with JWT encoding
 	// payload := map[string]interface{}{"endpoint": endpoint, "timestamp": time.Now().Unix()}
 	// token, err := jwtUtil.Encode(payload, time.Hour)
@@ -84,7 +107,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, 
 	// 	return
 	// }
 
-	json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint, "token": token})
+	json.NewEncoder(w).Encode(map[string]string{"message": "POST request for " + endpoint /*, "token": token*/})
 }
 
 // Handle PUT requests
