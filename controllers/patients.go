@@ -21,7 +21,23 @@ func NewPatientController(db *sql.DB) *PatientController {
 
 // Handle GET requests for patients
 func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request) {
-    patients, err := pc.PatientGateway.GetPatients()
+    identifier := r.URL.Query().Get("identifier")
+    var patients interface{}
+    var err error
+
+    switch identifier {
+    case "withPayment":
+        patients, err = pc.PatientGateway.GetPatientsWithPayment()
+    case "withDialysisAppointments":
+        patients, err = pc.PatientGateway.GetPatientsWithDialysisAppointments()
+    case "withNephrologistAppointments":
+        patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments()
+    case "withNotifications":
+        patients, err = pc.PatientGateway.GetPatientsWithNotifications()
+    default:
+        patients, err = pc.PatientGateway.GetPatients()
+    }
+
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to fetch patients")
         return

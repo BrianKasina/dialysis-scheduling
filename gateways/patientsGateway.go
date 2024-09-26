@@ -40,6 +40,93 @@ func (pg *PatientGateway) GetPatients() ([]Patient, error) {
     }
     return patients, nil
 }
+func (pg *PatientGateway) GetPatientsWithPayment() ([]Patient, error) {
+    rows, err := pg.db.Query(`
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, pd.payment_name
+        FROM patient p
+        JOIN payment_details pd ON p.payment_details_id = pd.payment_details_id
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var patients []Patient
+    for rows.Next() {
+        var patient Patient
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+            return nil, err
+        }
+        patients = append(patients, patient)
+    }
+    return patients, nil
+}
+
+func (pg *PatientGateway) GetPatientsWithDialysisAppointments() ([]Patient, error) {
+    rows, err := pg.db.Query(`
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, da.date AS appointment_date, da.time AS appointment_time, da.status AS appointment_status
+        FROM patient p
+        JOIN dialysis_appointment da ON p.patient_id = da.patient_id
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var patients []Patient
+    for rows.Next() {
+        var patient Patient
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+            return nil, err
+        }
+        patients = append(patients, patient)
+    }
+    return patients, nil
+}
+
+func (pg *PatientGateway) GetPatientsWithNephrologistAppointments() ([]Patient, error) {
+    rows, err := pg.db.Query(`
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, na.date AS appointment_date, na.time AS appointment_time, na.status AS appointment_status
+        FROM patient p
+        JOIN nephrologist_appointment na ON p.patient_id = na.patient_id
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var patients []Patient
+    for rows.Next() {
+        var patient Patient
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+            return nil, err
+        }
+        patients = append(patients, patient)
+    }
+    return patients, nil
+}
+
+func (pg *PatientGateway) GetPatientsWithNotifications() ([]Patient, error) {
+    rows, err := pg.db.Query(`
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, n.message AS notification_message, n.sent_date AS notification_date, n.sent_time AS notification_time
+        FROM patient p
+        JOIN notifications n ON p.patient_id = n.patient_id
+    `)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var patients []Patient
+    for rows.Next() {
+        var patient Patient
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+            return nil, err
+        }
+        patients = append(patients, patient)
+    }
+    return patients, nil
+}
 
 func (pg *PatientGateway) CreatePatient(patient *Patient) error {
     _, err := pg.db.Exec("INSERT INTO patient (name, address, phone_number, date_of_birth, gender, emergency_contact, payment_details_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
