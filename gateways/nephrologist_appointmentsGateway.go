@@ -19,13 +19,14 @@ func NewNephrologistAppointmentGateway(db *sql.DB) *NephrologistAppointmentGatew
 }
 
 // Retrieve nephrologist appointments with joined patient and staff data
-func (ng *NephrologistAppointmentGateway) GetAppointments() ([]models.NephrologistAppointment, error) {
+func (ng *NephrologistAppointmentGateway) GetAppointments(limit, offset int) ([]models.NephrologistAppointment, error) {
     rows, err := ng.db.Query(`
         SELECT na.appointment_id, na.date, na.time, na.status, p.name AS patient_name, s.name AS staff_name
         FROM nephrologist_appointment na
         JOIN patient p ON na.patient_id = p.patient_id
         JOIN hospital_staff s ON na.staff_id = s.staff_id
-    `)
+        LIMIT ? OFFSET ? 
+    `, limit ,offset)
     if err != nil {
         return nil, err
     }
@@ -48,15 +49,15 @@ func (ng *NephrologistAppointmentGateway) GetAppointments() ([]models.Nephrologi
 }
 
 // SearchAppointments searches for nephrologist appointments based on a query
-func (ng *NephrologistAppointmentGateway) SearchAppointments(query string) ([]models.NephrologistAppointment, error) {
+func (ng *NephrologistAppointmentGateway) SearchAppointments(query string, limit, offset int ) ([]models.NephrologistAppointment, error) {
     searchQuery := "%" + query + "%"
     rows, err := ng.db.Query(`
         SELECT na.appointment_id, na.date, na.time, na.status, p.name AS patient_name, s.name AS staff_name
         FROM nephrologist_appointment na
         JOIN patient p ON na.patient_id = p.patient_id
         JOIN hospital_staff s ON na.staff_id = s.staff_id
-        WHERE CONCAT(na.date, ' ', na.time, ' ', p.name, ' ', s.name) LIKE ?
-    `, searchQuery)
+        WHERE CONCAT(na.date, ' ', na.time, ' ', p.name, ' ', s.name) LIKE ? LIMIT ? OFFSET ?
+    `, searchQuery, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -71,6 +72,30 @@ func (ng *NephrologistAppointmentGateway) SearchAppointments(query string) ([]mo
         appointments = append(appointments, appointment)
     }
     return appointments, nil
+}
+
+func (ng *NephrologistAppointmentGateway) GetTotalNephrologistAppointmentCount(query string) (int, error) {
+    var row *sql.Row
+    if query != "" {
+        searchQuery := "%" + query + "%"
+        row = ng.db.QueryRow(`
+            SELECT COUNT(*)
+            FROM nephrologist_appointment da
+            JOIN patient p ON da.patient_id = p.patient_id
+            JOIN hospital_staff s ON da.staff_id = s.staff_id
+            WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ?
+        `, searchQuery)
+    } else {
+        row = ng.db.QueryRow("SELECT COUNT(*) FROM nephrology_appointment")
+    }
+
+    var count int
+    err := row.Scan(&count)
+    if err != nil {
+        return 0, err
+    }
+
+    return count, nil
 }
 
 // Create new nephrologist appointment

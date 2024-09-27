@@ -3,6 +3,7 @@ package controllers
 import (
     "encoding/json"
     "net/http"
+    "math"
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
 	"github.com/BrianKasina/dialysis-scheduling/models"
@@ -22,39 +23,60 @@ func NewPatientController(db *sql.DB) *PatientController {
 
 // Handle GET requests for patients
 func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request) {
+    limit := r.Context().Value("limit").(int)
+    page := r.Context().Value("page").(int)
     identifier := r.URL.Query().Get("identifier")
+    query := r.URL.Query().Get("query")
+
+    offset := (page - 1) * limit
+
     var patients interface{}
     var err error
 
     switch identifier {
     case "withPayment":
-        patients, err = pc.PatientGateway.GetPatientsWithPayment()
+        patients, err = pc.PatientGateway.GetPatientsWithPayment( limit, offset )
     case "withDialysisAppointments":
-        patients, err = pc.PatientGateway.GetPatientsWithDialysisAppointments()
+        patients, err = pc.PatientGateway.GetPatientsWithDialysisAppointments( limit, offset )
     case "withNephrologistAppointments":
-        patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments()
+        patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments( limit, offset )
     case "withNotifications":
-        patients, err = pc.PatientGateway.GetPatientsWithNotifications()
+        patients, err = pc.PatientGateway.GetPatientsWithNotifications( limit, offset )
 	case "search":
         name := r.URL.Query().Get("name")
         if name == "" {
-            patients, err = pc.PatientGateway.GetPatients()
+            patients, err = pc.PatientGateway.GetPatients( limit, offset )
 			if err != nil {
 				utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to fetch patients")
 				return
 			}
             return
         }
-        patients, err = pc.PatientGateway.SearchPatients(name)
+        patients, err = pc.PatientGateway.SearchPatients(name, limit, offset)
     default:
-        patients, err = pc.PatientGateway.GetPatients()
+        patients, err = pc.PatientGateway.GetPatients( limit, offset )
     }
 
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to fetch patients")
         return
     }
-    json.NewEncoder(w).Encode(patients)
+
+    totalEntries, err := pc.PatientGateway.GetTotalPatientCount(query)
+    if err != nil {
+        utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to fetch total patients count")
+        return
+    }
+
+    totalPages := int(math.Ceil(float64(totalEntries) / float64(limit)))
+
+    response := map[string]interface{}{
+        "data":         patients,
+        "total_pages":  totalPages,
+        "current_page": page,
+        "total_entries": totalEntries,
+    }
+    json.NewEncoder(w).Encode(response)
 }
 
 // Handle POST requests for patients

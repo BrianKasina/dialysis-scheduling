@@ -5,16 +5,6 @@ import (
 	"github.com/BrianKasina/dialysis-scheduling/models"
 )
 
-// type Patient struct {
-//     ID               int    `json:"id"`
-//     Name             string `json:"name"`
-//     Address          string `json:"address"`
-//     PhoneNumber      string `json:"phone_number"`
-//     DateOfBirth      string `json:"date_of_birth"`
-//     Gender           string `json:"gender"`
-//     EmergencyContact string `json:"emergency_contact"`
-//     PaymentDetailsID int    `json:"payment_details_id"`
-// }
 
 type PatientGateway struct {
     db *sql.DB
@@ -24,8 +14,8 @@ func NewPatientGateway(db *sql.DB) *PatientGateway {
     return &PatientGateway{db: db}
 }
 
-func (pg *PatientGateway) GetPatients() ([]models.Patient, error) {
-    rows, err := pg.db.Query("SELECT * FROM patient")
+func (pg *PatientGateway) GetPatients( limit, offset int) ([]models.Patient, error) {
+    rows, err := pg.db.Query("SELECT * FROM patient LIMIT ? OFFSET ?", limit, offset)
     if err != nil {
         return nil, err
     }
@@ -42,14 +32,14 @@ func (pg *PatientGateway) GetPatients() ([]models.Patient, error) {
     return patients, nil
 }
 
-func (pg *PatientGateway) SearchPatients(query string) ([]models.Patient, error) {
+func (pg *PatientGateway) SearchPatients(query string, limit, offset int) ([]models.Patient, error) {
     searchQuery := "%" + query + "%"
     rows, err := pg.db.Query(`
         SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, pd.payment_name
         FROM patient p
         LEFT JOIN payment_details pd ON p.payment_details_id = pd.payment_details_id
-        WHERE CONCAT(p.name, ' ', p.address, ' ', p.phone_number) LIKE ?
-    `, searchQuery)
+        WHERE CONCAT(p.name, ' ', p.address, ' ', p.phone_number) LIKE ? LIMIT ? OFFSET ?
+    `, searchQuery, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -65,12 +55,13 @@ func (pg *PatientGateway) SearchPatients(query string) ([]models.Patient, error)
     }
     return patients, nil
 }
-func (pg *PatientGateway) GetPatientsWithPayment() ([]models.Patient, error) {
+func (pg *PatientGateway) GetPatientsWithPayment(limit, offset int) ([]models.Patient, error) {
     rows, err := pg.db.Query(`
         SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, pd.payment_name
         FROM patient p
         JOIN payment_details pd ON p.payment_details_id = pd.payment_details_id
-    `)
+        LIMIT ? OFFSET ?
+    `, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -87,12 +78,12 @@ func (pg *PatientGateway) GetPatientsWithPayment() ([]models.Patient, error) {
     return patients, nil
 }
 
-func (pg *PatientGateway) GetPatientsWithDialysisAppointments() ([]models.Patient, error) {
+func (pg *PatientGateway) GetPatientsWithDialysisAppointments(limit, offset int) ([]models.Patient, error) {
     rows, err := pg.db.Query(`
-        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, da.date AS appointment_date, da.time AS appointment_time, da.status AS appointment_status
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, da.date , da.time , da.status 
         FROM patient p
-        JOIN dialysis_appointment da ON p.patient_id = da.patient_id
-    `)
+        JOIN dialysis_appointment da ON p.patient_id = da.patient_id LIMIT ? OFFSET ?
+    `, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -101,7 +92,7 @@ func (pg *PatientGateway) GetPatientsWithDialysisAppointments() ([]models.Patien
     var patients []models.Patient
     for rows.Next() {
         var patient models.Patient
-        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.Date, &patient.Time, &patient.Status); err != nil {
             return nil, err
         }
         patients = append(patients, patient)
@@ -109,12 +100,13 @@ func (pg *PatientGateway) GetPatientsWithDialysisAppointments() ([]models.Patien
     return patients, nil
 }
 
-func (pg *PatientGateway) GetPatientsWithNephrologistAppointments() ([]models.Patient, error) {
+func (pg *PatientGateway) GetPatientsWithNephrologistAppointments(limit, offset int) ([]models.Patient, error) {
     rows, err := pg.db.Query(`
-        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, na.date AS appointment_date, na.time AS appointment_time, na.status AS appointment_status
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, na.date, na.time, na.status
         FROM patient p
-        JOIN nephrologist_appointment na ON p.patient_id = na.patient_id
-    `)
+        JOIN nephrologist_appointment na ON p.patient_id = na.patient_id 
+        LIMIT ? OFFSET ?
+    `, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -123,7 +115,7 @@ func (pg *PatientGateway) GetPatientsWithNephrologistAppointments() ([]models.Pa
     var patients []models.Patient
     for rows.Next() {
         var patient models.Patient
-        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.Date, &patient.Time, &patient.Status); err != nil {
             return nil, err
         }
         patients = append(patients, patient)
@@ -131,12 +123,13 @@ func (pg *PatientGateway) GetPatientsWithNephrologistAppointments() ([]models.Pa
     return patients, nil
 }
 
-func (pg *PatientGateway) GetPatientsWithNotifications() ([]models.Patient, error) {
+func (pg *PatientGateway) GetPatientsWithNotifications(limit, offset int) ([]models.Patient, error) {
     rows, err := pg.db.Query(`
-        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, n.message AS notification_message, n.sent_date AS notification_date, n.sent_time AS notification_time
+        SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, n.message, n.sent_date AS Date_sent, n.sent_time AS Time_sent
         FROM patient p
         JOIN notifications n ON p.patient_id = n.patient_id
-    `)
+        LIMIT ? OFFSET ?
+    `, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -145,12 +138,35 @@ func (pg *PatientGateway) GetPatientsWithNotifications() ([]models.Patient, erro
     var patients []models.Patient
     for rows.Next() {
         var patient models.Patient
-        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.PaymentDetailsID); err != nil {
+        if err := rows.Scan(&patient.ID, &patient.Name, &patient.Address, &patient.PhoneNumber, &patient.DateOfBirth, &patient.Gender, &patient.EmergencyContact, &patient.Date_sent, &patient.Time_sent, &patient.Message); err != nil {
             return nil, err
         }
         patients = append(patients, patient)
     }
     return patients, nil
+}
+
+func (pg *PatientGateway) GetTotalPatientCount(query string) (int, error) {
+    var row *sql.Row
+    if query != "" {
+        searchQuery := "%" + query + "%"
+        row = pg.db.QueryRow(`
+            SELECT COUNT(*)
+            FROM patient p
+            LEFT JOIN payment_details pd ON p.payment_details_id = pd.payment_details_id
+            WHERE CONCAT(p.name, ' ', p.address, ' ', p.phone_number) LIKE ?
+        `, searchQuery)
+    } else {
+        row = pg.db.QueryRow("SELECT COUNT(*) FROM patient")
+    }
+
+    var count int
+    err := row.Scan(&count)
+    if err != nil {
+        return 0, err
+    }
+
+    return count, nil
 }
 
 func (pg *PatientGateway) CreatePatient(patient *models.Patient) error {

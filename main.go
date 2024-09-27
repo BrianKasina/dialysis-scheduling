@@ -5,13 +5,41 @@ import (
     "log"
     "net/http"
     "os"
-
+    "strconv"
+    "context"
     "github.com/gorilla/mux"
     "github.com/joho/godotenv"
     "github.com/BrianKasina/dialysis-scheduling/controllers"
     "github.com/BrianKasina/dialysis-scheduling/utils"
 )
+// Middleware to extract pagination parameters
+func paginationMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        limitStr := r.URL.Query().Get("limit")
+        pageStr := r.URL.Query().Get("page")
+        
+        limit := 10 // Default limit
+        page := 1   // Default page
 
+        if limitStr != "" {
+            if limitVal, err := strconv.Atoi(limitStr); err == nil {
+                limit = limitVal
+            }
+        }
+
+        if pageStr != "" {
+            if pageVal, err := strconv.Atoi(pageStr); err == nil {
+                page = pageVal
+            }
+        }
+
+        // Store limit and page in request context
+        ctx := context.WithValue(r.Context(), "limit", limit)
+        ctx = context.WithValue(ctx, "page", page)
+
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
 // Middleware to set Content-Type header
 func setJSONContentType(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +74,11 @@ func main() {
     controllersMap := map[string]interface{}{
         "patients":     controllers.NewPatientController(db),
         "appointments": controllers.NewAppointmentController(db),
+        "hospital_staff": controllers.NewHospitalStaffController(db),
+        "system_admins": controllers.NewAdminController(db),
+        "notifications": controllers.NewNotificationController(db),
+        "posts": controllers.NewPostController(db),
+        "payment_details": controllers.NewPaymentDetailsController(db),
     }
 
     // Initialize router
@@ -53,6 +86,7 @@ func main() {
 
     // Apply middleware to set Content-Type header
     router.Use(setJSONContentType)
+    router.Use(paginationMiddleware)
 
     allowedEndpoints := map[string]bool{
         "patients":        true,
@@ -102,6 +136,16 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, c
         controllersMap["patients"].(*controllers.PatientController).GetPatients(w, r)
     case "appointments":
         controllersMap["appointments"].(*controllers.AppointmentController).GetAppointments(w, r)
+    case "hospital_staff":
+        controllersMap["hospital_staff"].(*controllers.HospitalStaffController).GetHospitalStaff(w, r)
+    case "system_admins":
+        controllersMap["system_admins"].(*controllers.AdminController).GetAdmins(w, r)
+    case "notifications":
+        controllersMap["notifications"].(*controllers.NotificationController).GetNotifications(w, r)
+    case "posts":
+        controllersMap["posts"].(*controllers.PostController).GetPosts(w, r)
+    case "payment_details":
+        controllersMap["payment_details"].(*controllers.PaymentDetailsController).GetPaymentDetails(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
@@ -114,6 +158,16 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, 
         controllersMap["patients"].(*controllers.PatientController).CreatePatient(w, r)
     case "appointments":
         controllersMap["appointments"].(*controllers.AppointmentController).CreateAppointment(w, r)
+    case "hospital_staff":
+        controllersMap["hospital_staff"].(*controllers.HospitalStaffController).CreateHospitalStaff(w, r)
+    case "system_admins":
+        controllersMap["system_admins"].(*controllers.AdminController).CreateAdmin(w, r)
+    case "notifications":
+        controllersMap["notifications"].(*controllers.NotificationController).CreateNotification(w, r)
+    case "posts":
+        controllersMap["posts"].(*controllers.PostController).CreatePost(w, r)
+    case "payment_details":
+        controllersMap["payment_details"].(*controllers.PaymentDetailsController).CreatePaymentDetail(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
@@ -126,6 +180,16 @@ func handlePutRequest(w http.ResponseWriter, r *http.Request, endpoint string, c
         controllersMap["patients"].(*controllers.PatientController).UpdatePatient(w, r)
     case "appointments":
         controllersMap["appointments"].(*controllers.AppointmentController).UpdateAppointment(w, r)
+    case "hospital_staff":
+        controllersMap["hospital_staff"].(*controllers.HospitalStaffController).UpdateHospitalStaff(w, r)
+    case "system_admins":
+        controllersMap["system_admins"].(*controllers.AdminController).UpdateAdmin(w, r)
+    case "notifications":
+        controllersMap["notifications"].(*controllers.NotificationController).UpdateNotification(w, r)
+    case "posts":
+        controllersMap["posts"].(*controllers.PostController).UpdatePost(w, r)
+    case "payment_details":
+        controllersMap["payment_details"].(*controllers.PaymentDetailsController).UpdatePaymentDetail(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
@@ -138,6 +202,16 @@ func handleDeleteRequest(w http.ResponseWriter, r *http.Request, endpoint string
         controllersMap["patients"].(*controllers.PatientController).DeletePatient(w, r)
     case "appointments":
         controllersMap["appointments"].(*controllers.AppointmentController).DeleteAppointment(w, r)
+    case "hospital_staff":
+        controllersMap["hospital_staff"].(*controllers.HospitalStaffController).DeleteHospitalStaff(w, r)
+    case "system_admins":
+        controllersMap["system_admins"].(*controllers.AdminController).DeleteAdmin(w, r)
+    case "notifications":
+        controllersMap["notifications"].(*controllers.NotificationController).DeleteNotification(w, r)
+    case "posts":
+        controllersMap["posts"].(*controllers.PostController).DeletePost(w, r)
+    case "payment_details":
+        controllersMap["payment_details"].(*controllers.PaymentDetailsController).DeletePaymentDetail(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }

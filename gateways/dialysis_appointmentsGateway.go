@@ -20,13 +20,14 @@ func NewDialysisGateway(db *sql.DB) *DialysisGateway {
 }
 
 // GetAppointments retrieves dialysis appointments with patient and staff details
-func (dg *DialysisGateway) GetAppointments() ([]models.DialysisAppointment, error) {
+func (dg *DialysisGateway) GetAppointments(limit, offset int) ([]models.DialysisAppointment, error) {
     rows, err := dg.db.Query(`
         SELECT da.appointment_id, da.date, da.time, da.status, p.name AS patient_name, s.name AS staff_name
         FROM dialysis_appointment da
         JOIN patient p ON da.patient_id = p.patient_id
         JOIN hospital_staff s ON da.staff_id = s.staff_id
-    `)
+        LIMIT ? OFFSET ?
+    ` , limit, offset)
     if err != nil {
         return nil, err
     }
@@ -44,15 +45,15 @@ func (dg *DialysisGateway) GetAppointments() ([]models.DialysisAppointment, erro
 }
 
 // SearchAppointments searches for dialysis appointments based on a query
-func (dg *DialysisGateway) SearchAppointments(query string) ([]models.DialysisAppointment, error) {
+func (dg *DialysisGateway) SearchAppointments(query string, limit, offset int) ([]models.DialysisAppointment, error) {
     searchQuery := "%" + query + "%"
     rows, err := dg.db.Query(`
         SELECT da.appointment_id, da.date, da.time, da.status, p.name AS patient_name, s.name AS staff_name
         FROM dialysis_appointment da
         JOIN patient p ON da.patient_id = p.patient_id
         JOIN hospital_staff s ON da.staff_id = s.staff_id
-        WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ?
-    `, searchQuery)
+        WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ? LIMIT ? OFFSET ?
+    `, searchQuery, limit, offset)
     if err != nil {
         return nil, err
     }
@@ -67,6 +68,30 @@ func (dg *DialysisGateway) SearchAppointments(query string) ([]models.DialysisAp
         appointments = append(appointments, appointment)
     }
     return appointments, nil
+}
+
+func (dg *DialysisGateway) GetTotalDialysisAppointmentCount(query string) (int, error) {
+    var row *sql.Row
+    if query != "" {
+        searchQuery := "%" + query + "%"
+        row = dg.db.QueryRow(`
+            SELECT COUNT(*)
+            FROM dialysis_appointment da
+            JOIN patient p ON da.patient_id = p.patient_id
+            JOIN hospital_staff s ON da.staff_id = s.staff_id
+            WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ?
+        `, searchQuery)
+    } else {
+        row = dg.db.QueryRow("SELECT COUNT(*) FROM dialysis_appointment")
+    }
+
+    var count int
+    err := row.Scan(&count)
+    if err != nil {
+        return 0, err
+    }
+
+    return count, nil
 }
 
 // CreateAppointment creates a new dialysis appointment
