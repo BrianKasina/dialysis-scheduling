@@ -103,8 +103,16 @@ func (dg *DialysisGateway) CreateAppointment(w http.ResponseWriter, r *http.Requ
         return
     }
 
-    _, err = dg.db.Exec("INSERT INTO dialysis_appointment (date, time, status, patient_id, staff_id) VALUES (?, ?, ?, ?, ?)",
-        appointment.Date, appointment.Time, appointment.Status, appointment.PatientID, appointment.StaffID)
+    _, err = dg.db.Exec(
+        `INSERT INTO dialysis_appointment (
+            date, time, status, patient_id, staff_id
+        ) VALUES (
+            ?, ?, ?, 
+            (SELECT patient_id FROM patients WHERE name LIKE ? LIMIT 1), 
+            (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1)
+        )`,
+        appointment.Date, appointment.Time, appointment.Status,appointment.PatientName, appointment.StaffName,
+    )
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to create dialysis appointment")
         return
@@ -123,8 +131,12 @@ func (dg *DialysisGateway) UpdateAppointment(w http.ResponseWriter, r *http.Requ
         return
     }
 
-    _, err = dg.db.Exec("UPDATE dialysis_appointment SET date = ?, time = ?, status = ?, staff_id = ? WHERE appointment_id = ?",
-        appointment.Date, appointment.Time, appointment.Status, appointment.StaffID, appointment.ID)
+    _, err = dg.db.Exec(
+        `UPDATE dialysis_appointment SET 
+            date = ?, time = ?, status = ?, 
+            staff_id = (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1) 
+            WHERE appointment_id = ?`,
+        appointment.Date, appointment.Time, appointment.Status, appointment.StaffName, appointment.ID)
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update dialysis appointment")
         return

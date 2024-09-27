@@ -85,14 +85,21 @@ func (pg *PostGateway) GetTotalPostCount(query string) (int, error) {
 }
 
 func (pg *PostGateway) CreatePost(post *models.Post) error {
-    _, err := pg.db.Exec("INSERT INTO posts (title, content, post_date, post_time, admin_id) VALUES (?, ?, ?, ?, ?)",
-        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminID)
+    _, err := pg.db.Exec(
+        `INSERT INTO posts (title, content, post_date, post_time, admin_id) 
+        VALUES (?, ?, ?, ?, 
+        (SELECT admin_id FROM system_admin WHERE name = ?)
+        )`,
+        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminName)
     return err
 }
 
 func (pg *PostGateway) UpdatePost(post *models.Post) error {
-    _, err := pg.db.Exec("UPDATE posts SET title = ?, content = ?, post_date = ?, post_time = ?, admin_id = ? WHERE post_id = ?",
-        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminID, post.ID)
+    _, err := pg.db.Exec(
+        `UPDATE posts SET title = ?, content = ?, post_date = ?, post_time = ?, 
+         admin_id = (SELECT admin_id FROM system_admin WHERE name = ?) 
+         WHERE post_id = ?`,
+        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminName, post.ID)
     return err
 }
 

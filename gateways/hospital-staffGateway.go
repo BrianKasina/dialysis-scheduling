@@ -81,8 +81,10 @@ func (hsg *HospitalStaffGateway) CreateHospitalStaff(member *models.HospitalStaf
 }
 
 func (hsg *HospitalStaffGateway) UpdateHospitalStaff(member *models.HospitalStaff) error {
-    _, err := hsg.db.Exec("UPDATE hospital_staff SET name = ?, gender = ?, specialization = ?, phonenumber = ?, status = ? WHERE staff_id = ?",
-        member.Name, member.Gender, member.Specialization, member.PhoneNumber, member.Status, member.ID)
+    _, err := hsg.db.Exec(
+        `UPDATE hospital_staff SET name = ?, gender = ?, specialization = ?, phonenumber = ?, status = ? 
+        WHERE staff_id = (SELECT staff_id FROM hospital_staff WHERE name = ?)`,
+        member.Name, member.Gender, member.Specialization, member.PhoneNumber, member.Status, member.Name)
     return err
 }
 

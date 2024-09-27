@@ -42,6 +42,8 @@ func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request)
         patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments( limit, offset )
     case "withNotifications":
         patients, err = pc.PatientGateway.GetPatientsWithNotifications( limit, offset )
+    case "withHistories":
+        patients, err = pc.PatientGateway.GetPatientsWithHistories( limit, offset )
 	case "search":
         name := r.URL.Query().Get("name")
         if name == "" {

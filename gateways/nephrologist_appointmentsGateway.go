@@ -107,10 +107,15 @@ func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWrite
         return
     }
 
-    _, err = ng.db.Exec(`
-        INSERT INTO nephrologist_appointment (date, time, status, patient_id, staff_id)
-        VALUES (?, ?, ?, ?, ?)`,
-        appointment.Date, appointment.Time, appointment.Status, appointment.PatientID, appointment.StaffID,
+    _, err = ng.db.Exec(
+        `INSERT INTO nephrologist_appointment (
+            date, time, status, patient_id, staff_id
+        ) VALUES (
+            ?, ?, ?, 
+            (SELECT patient_id FROM patients WHERE name LIKE ? LIMIT 1), 
+            (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1)
+        )`,
+        appointment.Date, appointment.Time, appointment.Status,appointment.PatientName, appointment.StaffName,
     )
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to create nephrologist appointment")
@@ -123,9 +128,7 @@ func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWrite
 
 // Update or cancel nephrologist appointment
 func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    id := vars["id"]
-
+    
     var appointment models.NephrologistAppointment
     err := json.NewDecoder(r.Body).Decode(&appointment)
     if err != nil {
@@ -133,12 +136,12 @@ func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWrite
         return
     }
 
-    _, err = ng.db.Exec(`
-        UPDATE nephrologist_appointment 
-        SET date = ?, time = ?, status = ?, staff_id = ?
-        WHERE appointment_id = ?`,
-        appointment.Date, appointment.Time, appointment.Status, appointment.StaffID, id,
-    )
+    _, err = ng.db.Exec(
+        `UPDATE nephrologist_appointment SET 
+            date = ?, time = ?, status = ?, 
+            staff_id = (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1) 
+            WHERE appointment_id = ?`,
+        appointment.Date, appointment.Time, appointment.Status, appointment.StaffName, appointment.ID)
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update nephrologist appointment")
         return

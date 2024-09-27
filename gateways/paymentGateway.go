@@ -88,7 +88,7 @@ func (pg *PaymentDetailsGateway) CreatePaymentDetail(paymentDetail *models.Payme
 }
 
 func (pg *PaymentDetailsGateway) UpdatePaymentDetail(paymentDetail *models.PaymentDetails) error {
-    _, err := pg.db.Exec("UPDATE payment_details SET payment_name = ? WHERE payment_details_id = ?",
+    _, err := pg.db.Exec(`UPDATE payment_details SET payment_name = ? WHERE payment_details_id = ?`,
         paymentDetail.PaymentName, paymentDetail.ID)
     return err
 }

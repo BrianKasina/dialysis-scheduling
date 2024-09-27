@@ -79,6 +79,7 @@ func main() {
         "notifications": controllers.NewNotificationController(db),
         "posts": controllers.NewPostController(db),
         "payment_details": controllers.NewPaymentDetailsController(db),
+        "patient_history": controllers.NewPatientHistoryController(db),
     }
 
     // Initialize router
@@ -146,6 +147,8 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, c
         controllersMap["posts"].(*controllers.PostController).GetPosts(w, r)
     case "payment_details":
         controllersMap["payment_details"].(*controllers.PaymentDetailsController).GetPaymentDetails(w, r)
+    case "patient_history":
+        controllersMap["patient_history"].(*controllers.PatientHistoryController).OpenPatientHistory(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }
@@ -168,6 +171,8 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request, endpoint string, 
         controllersMap["posts"].(*controllers.PostController).CreatePost(w, r)
     case "payment_details":
         controllersMap["payment_details"].(*controllers.PaymentDetailsController).CreatePaymentDetail(w, r)
+    case "patient_history":
+        controllersMap["patient_history"].(*controllers.PatientHistoryController).UploadPatientHistory(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }

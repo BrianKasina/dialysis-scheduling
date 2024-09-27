@@ -78,6 +78,32 @@ func (pg *PatientGateway) GetPatientsWithPayment(limit, offset int) ([]models.Pa
     return patients, nil
 }
 
+// Get patient names who have history files
+func (pg *PatientGateway) GetPatientsWithHistories(limit, offset int) ([]models.Patient, error) {
+    rows, err := pg.db.Query(`
+        SELECT p.patient_id, p.name, ph.history_file 
+        FROM patient p
+        JOIN patient_history ph ON p.patient_id = ph.patient_id
+        LIMIT ? OFFSET ?
+    `, limit, offset)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var patients []models.Patient
+    for rows.Next() {
+        var patient models.Patient
+        var history models.PatientHistory
+        if err := rows.Scan(&patient.ID, &patient.Name, &history.HistoryFile); err != nil {
+            return nil, err
+        }
+        patient.HistoryFile = history.HistoryFile
+        patients = append(patients, patient)
+    }
+    return patients, nil
+}
+
 func (pg *PatientGateway) GetPatientsWithDialysisAppointments(limit, offset int) ([]models.Patient, error) {
     rows, err := pg.db.Query(`
         SELECT p.patient_id, p.name, p.address, p.phone_number, p.date_of_birth, p.gender, p.emergency_contact, da.date , da.time , da.status 
@@ -170,14 +196,26 @@ func (pg *PatientGateway) GetTotalPatientCount(query string) (int, error) {
 }
 
 func (pg *PatientGateway) CreatePatient(patient *models.Patient) error {
-    _, err := pg.db.Exec("INSERT INTO patient (name, address, phone_number, date_of_birth, gender, emergency_contact, payment_details_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        patient.Name, patient.Address, patient.PhoneNumber, patient.DateOfBirth, patient.Gender, patient.EmergencyContact, patient.PaymentDetailsID)
+    _, err := pg.db.Exec(
+        `INSERT INTO patient (
+            name, address, phone_number, date_of_birth, gender, emergency_contact, payment_details_id
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, 
+            (SELECT pd.payment_details_id FROM payment_details pd WHERE pd.payment_name = ?)
+        )`,
+        patient.Name, patient.Address, patient.PhoneNumber, patient.DateOfBirth, patient.Gender, patient.EmergencyContact, patient.PaymentName,
+    )
     return err
 }
 
 func (pg *PatientGateway) UpdatePatient(patient *models.Patient) error {
-    _, err := pg.db.Exec("UPDATE patient SET name = ?, address = ?, phone_number = ?, date_of_birth = ?, gender = ?, emergency_contact = ?, payment_details_id = ? WHERE patient_id = ?",
-        patient.Name, patient.Address, patient.PhoneNumber, patient.DateOfBirth, patient.Gender, patient.EmergencyContact, patient.PaymentDetailsID, patient.ID)
+    _, err := pg.db.Exec(
+        `UPDATE patient 
+        SET name = ?, address = ?, phone_number = ?, date_of_birth = ?, gender = ?, emergency_contact = ?, 
+        payment_details_id = (SELECT pd.payment_details_id FROM payment_details pd WHERE pd.payment_name = ?)
+        WHERE patient_id = (SELECT patient_id FROM patient WHERE name LIKE ? )`,
+        patient.Name, patient.Address, patient.PhoneNumber, patient.DateOfBirth, patient.Gender, patient.EmergencyContact, patient.PaymentName, patient.Name,
+    )
     return err
 }
 

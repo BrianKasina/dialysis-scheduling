@@ -17,4 +17,5 @@ type Patient struct {
 	Date             string `json:"date,omitempty" db:"date"`                 // Added field for join
 	Time             string `json:"time,omitempty" db:"time"`                 // Added field for join
     Status           string `json:"status,omitempty" db:"status"`             // Added field for join
+	HistoryFile      string `json:"history_file,omitempty" db:"history_file"` // Added field for join
 }

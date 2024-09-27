@@ -88,14 +88,23 @@ func (ng *NotificationGateway) GetTotalNotificationCount(query string) (int, err
 }
 
 func (ng *NotificationGateway) CreateNotification(notification *models.Notification) error {
-    _, err := ng.db.Exec("INSERT INTO notifications (message, sent_date, sent_time, admin_id, patient_id) VALUES (?, ?, ?, ?, ?)",
-        notification.Message, notification.SentDate, notification.SentTime, notification.AdminID, notification.PatientID)
+    _, err := ng.db.Exec(
+        `INSERT INTO notifications (message, sent_date, sent_time, admin_id, patient_id) 
+        VALUES (?, ?, ?, 
+        (SELECT admin_id FROM system_admin WHERE name = ?), 
+        (SELECT patient_id FROM patient WHERE name = ?))`,
+        notification.Message, notification.SentDate, notification.SentTime, notification.AdminName, notification.PatientName)
     return err
 }
 
 func (ng *NotificationGateway) UpdateNotification(notification *models.Notification) error {
-    _, err := ng.db.Exec("UPDATE notifications SET message = ?, sent_date = ?, sent_time = ?, admin_id = ?, patient_id = ? WHERE notification_id = ?",
-        notification.Message, notification.SentDate, notification.SentTime, notification.AdminID, notification.PatientID, notification.ID)
+    _, err := ng.db.Exec(
+        `UPDATE notifications SET 
+        message = ?, sent_date = ?, sent_time = ?, 
+        admin_id = (SELECT admin_id FROM system_admin WHERE name = ?), 
+        patient_id = (SELECT patient_id FROM patient WHERE name = ?) 
+        WHERE notification_id = ?`,
+        notification.Message, notification.SentDate, notification.SentTime, notification.AdminName, notification.PatientName, notification.ID)
     return err
 }
 
