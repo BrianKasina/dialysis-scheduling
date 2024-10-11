@@ -75,7 +75,7 @@ func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request)
     response := map[string]interface{}{
         "data":         patients,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
     json.NewEncoder(w).Encode(response)

@@ -55,7 +55,7 @@ func (pc *PaymentDetailsController) GetPaymentDetails(w http.ResponseWriter, r *
     response := map[string]interface{}{
         "data":         paymentDetails,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 

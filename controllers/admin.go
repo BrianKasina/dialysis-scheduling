@@ -55,7 +55,7 @@ func (ac *AdminController) GetAdmins(w http.ResponseWriter, r *http.Request) {
     response := map[string]interface{}{
         "data":         admins,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 

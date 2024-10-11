@@ -82,7 +82,7 @@ func (ac *AppointmentController) GetAppointments(w http.ResponseWriter, r *http.
     response := map[string]interface{}{
         "data":         appointments,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 

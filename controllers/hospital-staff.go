@@ -55,7 +55,7 @@ func (hsc *HospitalStaffController) GetHospitalStaff(w http.ResponseWriter, r *h
     response := map[string]interface{}{
         "data":         staff,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 

@@ -55,7 +55,7 @@ func (nc *NotificationController) GetNotifications(w http.ResponseWriter, r *htt
     response := map[string]interface{}{
         "data":         notifications,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 

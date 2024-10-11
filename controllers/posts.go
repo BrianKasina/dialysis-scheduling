@@ -55,7 +55,7 @@ func (pc *PostController) GetPosts(w http.ResponseWriter, r *http.Request) {
     response := map[string]interface{}{
         "data":         posts,
         "total_pages":  totalPages,
-        "current_page": page,
+        "page": page,
         "total_entries": totalEntries,
     }
 
