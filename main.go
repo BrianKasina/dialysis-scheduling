@@ -55,20 +55,27 @@ func main() {
         log.Fatal("Error loading .env file")
     }
 
-    // Load environment variables
-    dbHost := os.Getenv("MYSQL_HOST")
-    dbPort := os.Getenv("MYSQL_PORT")
-    dbName := os.Getenv("MYSQL_DATABASE")
-    dbUser := os.Getenv("MYSQL_USER")
-    dbPass := os.Getenv("MYSQL_PASSWORD")
+     // Load environment variables
+    dbHost := os.Getenv("MONGO_HOST")
+    dbPort := os.Getenv("MONGO_PORT")
+    dbName := os.Getenv("MONGO_DATABASE")
+    dbUser := os.Getenv("MONGO_USER")
+    dbPass := os.Getenv("MONGO_PASSWORD")
 
     // Initialize database connection
-    database := utils.NewDatabase(dbHost+":"+dbPort, dbName, dbUser, dbPass)
+    database, err := utils.NewDatabase(dbHost+":"+dbPort, dbName, dbUser, dbPass)
+    if err != nil {
+        log.Fatal(err)
+    }
     db, err := database.GetConnection()
     if err != nil {
         log.Fatal(err)
     }
-    defer db.Close()
+    defer func() {
+        if err := database.Close(); err != nil {
+            log.Fatal(err)
+        }
+    }()
 
     // Initialize controllers
     controllersMap := map[string]interface{}{

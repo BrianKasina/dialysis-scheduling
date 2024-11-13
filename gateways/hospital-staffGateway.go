@@ -1,29 +1,43 @@
 package gateways
 
 import (
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "context"
+    "time"
+    "go.mongodb.org/mongo-driver/bson"
+
     "github.com/BrianKasina/dialysis-scheduling/models"
 )
 
 type HospitalStaffGateway struct {
-    db *sql.DB
+    collection *mongo.Collection
 }
 
-func NewHospitalStaffGateway(db *sql.DB) *HospitalStaffGateway {
-    return &HospitalStaffGateway{db: db}
+func NewHospitalStaffGateway(db *mongo.Database) *HospitalStaffGateway {
+    return &HospitalStaffGateway{
+        collection: db.Collection("hospital_staff"),
+    }
 }
 
 func (hsg *HospitalStaffGateway) GetHospitalStaff(limit, offset int) ([]models.HospitalStaff, error) {
-    rows, err := hsg.db.Query("SELECT * FROM hospital_staff LIMIT ? OFFSET ?", limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := hsg.collection.Find(ctx, bson.M{}, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var staff []models.HospitalStaff
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var member models.HospitalStaff
-        if err := rows.Scan(&member.ID, &member.Name, &member.Gender, &member.Specialization, &member.PhoneNumber, &member.Status); err != nil {
+        if err := cursor.Decode(&member); err != nil {
             return nil, err
         }
         staff = append(staff, member)
@@ -32,20 +46,29 @@ func (hsg *HospitalStaffGateway) GetHospitalStaff(limit, offset int) ([]models.H
 }
 
 func (hsg *HospitalStaffGateway) SearchHospitalStaff(query string, limit, offset int) ([]models.HospitalStaff, error) {
-    searchQuery := "%" + query + "%"
-    rows, err := hsg.db.Query(`
-        SELECT * FROM hospital_staff
-        WHERE CONCAT(name, ' ', specialization, ' ', phonenumber) LIKE ? LIMIT ? OFFSET ?
-    `, searchQuery, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"name": bson.M{"$regex": query, "$options": "i"}},
+            {"specialization": bson.M{"$regex": query, "$options": "i"}},
+            {"phonenumber": bson.M{"$regex": query, "$options": "i"}},
+        },
+    }
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := hsg.collection.Find(ctx, filter, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
 
     var staff []models.HospitalStaff
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var member models.HospitalStaff
-        if err := rows.Scan(&member.ID, &member.Name, &member.Gender, &member.Specialization, &member.PhoneNumber, &member.Status); err != nil {
+        if err := cursor.Decode(&member); err != nil {
             return nil, err
         }
         staff = append(staff, member)
@@ -54,41 +77,51 @@ func (hsg *HospitalStaffGateway) SearchHospitalStaff(query string, limit, offset
 }
 
 func (hsg *HospitalStaffGateway) GetTotalStaffCount(query string) (int, error) {
-    var row *sql.Row
-    if query != "" {
-        searchQuery := "%" + query + "%"
-        row = hsg.db.QueryRow(`
-            SELECT COUNT(*) FROM hospital_staff
-            WHERE CONCAT(name, ' ', specialization, ' ', phonenumber) LIKE ?
-        `, searchQuery)
-    } else {
-        row = hsg.db.QueryRow("SELECT COUNT(*) FROM hospital_staff")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"name": bson.M{"$regex": query, "$options": "i"}},
+            {"specialization": bson.M{"$regex": query, "$options": "i"}},
+            {"phonenumber": bson.M{"$regex": query, "$options": "i"}},
+        },
     }
 
-    var count int
-    err := row.Scan(&count)
-    if err != nil {
-        return 0, err
-    }
-
-    return count, nil
+    count, err := hsg.collection.CountDocuments(ctx, filter)
+    return int(count), err
 }
 
 func (hsg *HospitalStaffGateway) CreateHospitalStaff(member *models.HospitalStaff) error {
-    _, err := hsg.db.Exec("INSERT INTO hospital_staff (name, gender, specialization, phonenumber, status) VALUES (?, ?, ?, ?, ?)",
-        member.Name, member.Gender, member.Specialization, member.PhoneNumber, member.Status)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    _, err := hsg.collection.InsertOne(ctx, member)
     return err
 }
 
 func (hsg *HospitalStaffGateway) UpdateHospitalStaff(member *models.HospitalStaff) error {
-    _, err := hsg.db.Exec(
-        `UPDATE hospital_staff SET name = ?, gender = ?, specialization = ?, phonenumber = ?, status = ? 
-        WHERE staff_id = (SELECT staff_id FROM hospital_staff WHERE name = ?)`,
-        member.Name, member.Gender, member.Specialization, member.PhoneNumber, member.Status, member.Name)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{"staff_id": member.ID}
+    update := bson.M{
+        "$set": bson.M{
+            "name": member.Name,
+            "specialization": member.Specialization,
+            "phonenumber": member.PhoneNumber,
+            "status": member.Status,
+        },
+
+}
+_, err:= hsg.collection.UpdateOne(ctx, filter, update)
     return err
 }
 
 func (hsg *HospitalStaffGateway) DeleteHospitalStaff(staffID string) error {
-    _, err := hsg.db.Exec("DELETE FROM hospital_staff WHERE staff_id = ?", staffID)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    _, err := hsg.collection.DeleteOne(ctx, bson.M{"staff_id": staffID})
     return err
 }

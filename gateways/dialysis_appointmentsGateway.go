@@ -1,7 +1,11 @@
 package gateways
 
 import (
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "go.mongodb.org/mongo-driver/bson"
+    "context"
+    "time"
     "encoding/json"
     "net/http"
     "github.com/BrianKasina/dialysis-scheduling/models"
@@ -11,32 +15,35 @@ import (
 
 // DialysisGateway handles database operations for dialysis appointments
 type DialysisGateway struct {
-    db *sql.DB
+    collection *mongo.Collection
 }
 
 // NewDialysisGateway creates a new instance of DialysisGateway
-func NewDialysisGateway(db *sql.DB) *DialysisGateway {
-    return &DialysisGateway{db: db}
+func NewDialysisGateway(db *mongo.Database) *DialysisGateway {
+    return &DialysisGateway{
+        collection: db.Collection("dialysis_appointments"),
+    }
 }
 
 // GetAppointments retrieves dialysis appointments with patient and staff details
 func (dg *DialysisGateway) GetAppointments(limit, offset int) ([]models.DialysisAppointment, error) {
-    rows, err := dg.db.Query(`
-        SELECT da.appointment_id, da.date, da.time, da.status, p.name AS patient_name, s.name AS staff_name
-        FROM dialysis_appointment da
-        JOIN patient p ON da.patient_id = p.patient_id
-        JOIN hospital_staff s ON da.staff_id = s.staff_id
-        LIMIT ? OFFSET ?
-    ` , limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := dg.collection.Find(ctx, bson.M{}, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var appointments []models.DialysisAppointment
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var appointment models.DialysisAppointment
-        if err := rows.Scan(&appointment.ID, &appointment.Date, &appointment.Time, &appointment.Status, &appointment.PatientName, &appointment.StaffName); err != nil {
+        if err := cursor.Decode(&appointment); err != nil {
             return nil, err
         }
         appointments = append(appointments, appointment)
@@ -46,23 +53,32 @@ func (dg *DialysisGateway) GetAppointments(limit, offset int) ([]models.Dialysis
 
 // SearchAppointments searches for dialysis appointments based on a query
 func (dg *DialysisGateway) SearchAppointments(query string, limit, offset int) ([]models.DialysisAppointment, error) {
-    searchQuery := "%" + query + "%"
-    rows, err := dg.db.Query(`
-        SELECT da.appointment_id, da.date, da.time, da.status, p.name AS patient_name, s.name AS staff_name
-        FROM dialysis_appointment da
-        JOIN patient p ON da.patient_id = p.patient_id
-        JOIN hospital_staff s ON da.staff_id = s.staff_id
-        WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ? LIMIT ? OFFSET ?
-    `, searchQuery, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"staff_name": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+            {"date": bson.M{"$regex": query, "$options": "i"}},
+            {"time": bson.M{"$regex": query, "$options": "i"}},
+            {"status": bson.M{"$regex": query, "$options": "i"}},
+        },
+    }
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := dg.collection.Find(ctx, filter, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var appointments []models.DialysisAppointment
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var appointment models.DialysisAppointment
-        if err := rows.Scan(&appointment.ID, &appointment.Date, &appointment.Time, &appointment.Status, &appointment.PatientName, &appointment.StaffName); err != nil {
+        if err := cursor.Decode(&appointment); err != nil {
             return nil, err
         }
         appointments = append(appointments, appointment)
@@ -71,86 +87,77 @@ func (dg *DialysisGateway) SearchAppointments(query string, limit, offset int) (
 }
 
 func (dg *DialysisGateway) GetTotalDialysisAppointmentCount(query string) (int, error) {
-    var row *sql.Row
-    if query != "" {
-        searchQuery := "%" + query + "%"
-        row = dg.db.QueryRow(`
-            SELECT COUNT(*)
-            FROM dialysis_appointment da
-            JOIN patient p ON da.patient_id = p.patient_id
-            JOIN hospital_staff s ON da.staff_id = s.staff_id
-            WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ?
-        `, searchQuery)
-    } else {
-        row = dg.db.QueryRow("SELECT COUNT(*) FROM dialysis_appointment")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"staff_name": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+            {"date": bson.M{"$regex": query, "$options": "i"}},
+            {"time": bson.M{"$regex": query, "$options": "i"}},
+            {"status": bson.M{"$regex": query, "$options": "i"}},
+        },
     }
 
-    var count int
-    err := row.Scan(&count)
+    count, err := dg.collection.CountDocuments(ctx, filter)
     if err != nil {
         return 0, err
     }
-
-    return count, nil
+    return int(count), nil
 }
 
 // CreateAppointment creates a new dialysis appointment
 func (dg *DialysisGateway) CreateAppointment(w http.ResponseWriter, r *http.Request) {
-    var appointment models.DialysisAppointment
-    err := json.NewDecoder(r.Body).Decode(&appointment)
-    if err != nil {
-        utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
-        return
-    }
-
-    _, err = dg.db.Exec(
-        `INSERT INTO dialysis_appointment (
-            date, time, status, patient_id, staff_id
-        ) VALUES (
-            ?, ?, ?, 
-            (SELECT patient_id FROM patients WHERE name LIKE ? LIMIT 1), 
-            (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1)
-        )`,
-        appointment.Date, appointment.Time, appointment.Status,appointment.PatientName, appointment.StaffName,
-    )
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    _, err := dg.collection.InsertOne(ctx, bson.M{
+        "appointment_id": r.FormValue("appointment_id"),
+        "date": r.FormValue("date"),
+        "time": r.FormValue("time"),
+        "status": r.FormValue("status"),
+        "staff_name": r.FormValue("staff_name"),
+        "patient_name": r.FormValue("patient_name"),
+    })
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to create dialysis appointment")
         return
     }
 
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(appointment)
 }
 
 // UpdateAppointment updates an existing dialysis appointment
 func (dg *DialysisGateway) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
-    var appointment models.DialysisAppointment
-    err := json.NewDecoder(r.Body).Decode(&appointment)
-    if err != nil {
-        utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
-        return
-    }
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    vars := mux.Vars(r)
+    appointmentID := vars["id"]
 
-    _, err = dg.db.Exec(
-        `UPDATE dialysis_appointment SET 
-            date = ?, time = ?, status = ?, 
-            staff_id = (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1) 
-            WHERE appointment_id = ?`,
-        appointment.Date, appointment.Time, appointment.Status, appointment.StaffName, appointment.ID)
+    _, err := dg.collection.UpdateOne(ctx, bson.M{"appointment_id": appointmentID}, bson.M{
+        "$set": bson.M{
+            "date": r.FormValue("date"),
+            "time": r.FormValue("time"),
+            "status": r.FormValue("status"),
+            "staff_name": r.FormValue("staff_name"),
+            "patient_name": r.FormValue("patient_name"),
+        },
+    })
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update dialysis appointment")
         return
     }
 
-    json.NewEncoder(w).Encode(appointment)
+    json.NewEncoder(w).Encode(map[string]string{"message": "Dialysis appointment updated successfully"})
 }
 
 // DeleteAppointment deletes a dialysis appointment by its ID
 func (dg *DialysisGateway) DeleteAppointment(w http.ResponseWriter, r *http.Request) {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
     vars := mux.Vars(r)
     appointmentID := vars["id"]
 
-    _, err := dg.db.Exec("DELETE FROM dialysis_appointment WHERE appointment_id = ?", appointmentID)
+    _, err := dg.collection.DeleteOne(ctx, bson.M{"appointment_id": appointmentID})
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to delete dialysis appointment")
         return

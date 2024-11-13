@@ -7,7 +7,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
     "github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 )
 
@@ -15,7 +15,7 @@ type AdminController struct {
     AdminGateway *gateways.AdminGateway
 }
 
-func NewAdminController(db *sql.DB) *AdminController {
+func NewAdminController(db *mongo.Database) *AdminController {
     return &AdminController{
         AdminGateway: gateways.NewAdminGateway(db),
     }

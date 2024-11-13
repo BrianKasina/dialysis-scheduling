@@ -1,21 +1,15 @@
 package models
 
-
 type Patient struct {
-	ID               int    `json:"id" db:"patient_id"`
-	Name             string `json:"name" db:"name"`
-	Address          string `json:"address" db:"address"`
-	PhoneNumber      string `json:"phone_number" db:"phone_number"`
-	DateOfBirth      string `json:"date_of_birth" db:"date_of_birth"`
-	Gender           string `json:"gender" db:"gender"`
-	EmergencyContact string `json:"emergency_contact" db:"emergency_contact"`
-	PaymentDetailsID int    `json:"payment_details_id,omitempty" db:"payment_details_id"`
-	PaymentName      string `json:"payment_name,omitempty" db:"payment_name"` // Added field for join
-	Message          string `json:"message,omitempty" db:"message"`           // Added field for join
-	Date_sent        string `json:"sent_date,omitempty" db:"sent_date"`       // Added field for join
-	Time_sent        string `json:"sent_time,omitempty" db:"sent_time"`       // Added field for join
-	Date             string `json:"date,omitempty" db:"date"`                 // Added field for join
-	Time             string `json:"time,omitempty" db:"time"`                 // Added field for join
-    Status           string `json:"status,omitempty" db:"status"`             // Added field for join
-	HistoryFile      string `json:"history_file,omitempty" db:"history_file"` // Added field for join
+    ID               int    `json:"id" bson:"patient_id"`
+    Name             string `json:"name" bson:"name"`
+    Address          string `json:"address" bson:"address"`
+    PhoneNumber      string `json:"phone_number" bson:"phone_number"`
+    DateOfBirth      string `json:"date_of_birth" bson:"date_of_birth"`
+    Gender           string `json:"gender" bson:"gender"`
+    EmergencyContact string `json:"emergency_contact" bson:"emergency_contact"`
+    PaymentDetailsID int    `json:"payment_details_id,omitempty" bson:"payment_details_id"`
+    PaymentName      string `json:"payment_name,omitempty" bson:"payment_name"`
+    Status           string `json:"status,omitempty" bson:"status"`
+    HistoryFile      string `json:"history_file,omitempty" bson:"history_file"`
 }

@@ -7,7 +7,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
     "github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 )
 
@@ -15,7 +15,7 @@ type PostController struct {
     PostGateway *gateways.PostGateway
 }
 
-func NewPostController(db *sql.DB) *PostController {
+func NewPostController(db *mongo.Database) *PostController {
     return &PostController{
         PostGateway: gateways.NewPostGateway(db),
     }

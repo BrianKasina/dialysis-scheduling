@@ -1,35 +1,42 @@
 package gateways
 
 import (
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "context"
+    "time"
+    "go.mongodb.org/mongo-driver/bson"
     "github.com/BrianKasina/dialysis-scheduling/models"
 )
 
 type NotificationGateway struct {
-    db *sql.DB
+    collection *mongo.Collection
 }
 
-func NewNotificationGateway(db *sql.DB) *NotificationGateway {
-    return &NotificationGateway{db: db}
+func NewNotificationGateway(db *mongo.Database) *NotificationGateway {
+    return &NotificationGateway{
+        collection: db.Collection("notifications"),
+    }
 }
 
 func (ng *NotificationGateway) GetNotifications(limit, offset int) ([]models.Notification, error) {
-    rows, err := ng.db.Query(`
-        SELECT n.notification_id, n.message, n.sent_date, n.sent_time, sa.name AS admin_name, p.name AS patient_name
-        FROM notifications n
-        JOIN system_admin sa ON n.admin_id = sa.admin_id
-        JOIN patient p ON n.patient_id = p.patient_id
-        LIMIT ? OFFSET ?
-    `, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := ng.collection.Find(ctx, bson.M{}, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var notifications []models.Notification
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var notification models.Notification
-        if err := rows.Scan(&notification.ID, &notification.Message, &notification.SentDate, &notification.SentTime, &notification.AdminName, &notification.PatientName); err != nil {
+        if err := cursor.Decode(&notification); err != nil {
             return nil, err
         }
         notifications = append(notifications, notification)
@@ -38,24 +45,32 @@ func (ng *NotificationGateway) GetNotifications(limit, offset int) ([]models.Not
 }
 
 func (ng *NotificationGateway) SearchNotifications(query string, limit, offset int) ([]models.Notification, error) {
-    searchQuery := "%" + query + "%"
-    rows, err := ng.db.Query(`
-        SELECT n.notification_id, n.message, n.sent_date, n.sent_time, sa.name AS admin_name, p.name AS patient_name
-        FROM notifications n
-        JOIN system_admin sa ON n.admin_id = sa.admin_id
-        JOIN patient p ON n.patient_id = p.patient_id
-        WHERE CONCAT(n.message, ' ', sa.name, ' ', p.name) LIKE ?
-        LIMIT ? OFFSET ?
-    `, searchQuery, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"message": bson.M{"$regex": query, "$options": "i"}},
+            {"admin_name": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+
+
+        },
+    }
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := ng.collection.Find(ctx, filter, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var notifications []models.Notification
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var notification models.Notification
-        if err := rows.Scan(&notification.ID, &notification.Message, &notification.SentDate, &notification.SentTime, &notification.AdminName, &notification.PatientName); err != nil {
+        if err := cursor.Decode(&notification); err != nil {
             return nil, err
         }
         notifications = append(notifications, notification)
@@ -64,51 +79,42 @@ func (ng *NotificationGateway) SearchNotifications(query string, limit, offset i
 }
 
 func (ng *NotificationGateway) GetTotalNotificationCount(query string) (int, error) {
-    var row *sql.Row
-    if query != "" {
-        searchQuery := "%" + query + "%"
-        row = ng.db.QueryRow(`
-            SELECT COUNT(*)
-            FROM notifications n
-            JOIN system_admin sa ON n.admin_id = sa.admin_id
-            JOIN patient p ON n.patient_id = p.patient_id
-            WHERE CONCAT(n.message, ' ', sa.name, ' ', p.name) LIKE ?
-        `, searchQuery)
-    } else {
-        row = ng.db.QueryRow("SELECT COUNT(*) FROM notifications")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"message": bson.M{"$regex": query, "$options": "i"}},
+            {"admin_name": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+        },
     }
 
-    var count int
-    err := row.Scan(&count)
-    if err != nil {
-        return 0, err
-    }
-
-    return count, nil
+    count, err := ng.collection.CountDocuments(ctx, filter)
+    return int(count), err
 }
 
 func (ng *NotificationGateway) CreateNotification(notification *models.Notification) error {
-    _, err := ng.db.Exec(
-        `INSERT INTO notifications (message, sent_date, sent_time, admin_id, patient_id) 
-        VALUES (?, ?, ?, 
-        (SELECT admin_id FROM system_admin WHERE name = ?), 
-        (SELECT patient_id FROM patient WHERE name = ?))`,
-        notification.Message, notification.SentDate, notification.SentTime, notification.AdminName, notification.PatientName)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    _, err := ng.collection.InsertOne(ctx, notification)
     return err
+
 }
 
 func (ng *NotificationGateway) UpdateNotification(notification *models.Notification) error {
-    _, err := ng.db.Exec(
-        `UPDATE notifications SET 
-        message = ?, sent_date = ?, sent_time = ?, 
-        admin_id = (SELECT admin_id FROM system_admin WHERE name = ?), 
-        patient_id = (SELECT patient_id FROM patient WHERE name = ?) 
-        WHERE notification_id = ?`,
-        notification.Message, notification.SentDate, notification.SentTime, notification.AdminName, notification.PatientName, notification.ID)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    _, err := ng.collection.ReplaceOne(ctx, bson.M{"notification_id": notification.ID}, notification)
     return err
 }
 
 func (ng *NotificationGateway) DeleteNotification(notificationID string) error {
-    _, err := ng.db.Exec("DELETE FROM notifications WHERE notification_id = ?", notificationID)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    _, err := ng.collection.DeleteOne(ctx, bson.M{"notification_id": notificationID})
     return err
 }

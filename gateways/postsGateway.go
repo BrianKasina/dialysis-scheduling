@@ -1,34 +1,42 @@
 package gateways
 
 import (
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "context"
+    "time"
+    "go.mongodb.org/mongo-driver/bson"
     "github.com/BrianKasina/dialysis-scheduling/models"
 )
 
 type PostGateway struct {
-    db *sql.DB
+    collection *mongo.Collection
 }
 
-func NewPostGateway(db *sql.DB) *PostGateway {
-    return &PostGateway{db: db}
+func NewPostGateway(db *mongo.Database) *PostGateway {
+    return &PostGateway{
+        collection: db.Collection("posts"),
+    }
 }
 
 func (pg *PostGateway) GetPosts(limit, offset int) ([]models.Post, error) {
-    rows, err := pg.db.Query(`
-        SELECT p.post_id, p.title, p.content, p.post_date, p.post_time, sa.name AS admin_name
-        FROM posts p
-        JOIN system_admin sa ON p.admin_id = sa.admin_id
-        LIMIT ? OFFSET ?
-    `, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := pg.collection.Find(ctx, bson.M{}, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var posts []models.Post
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var post models.Post
-        if err := rows.Scan(&post.ID, &post.Title, &post.Content, &post.PostDate, &post.PostTime, &post.AdminName); err != nil {
+        if err := cursor.Decode(&post); err != nil {
             return nil, err
         }
         posts = append(posts, post)
@@ -37,23 +45,29 @@ func (pg *PostGateway) GetPosts(limit, offset int) ([]models.Post, error) {
 }
 
 func (pg *PostGateway) SearchPosts(query string, limit, offset int) ([]models.Post, error) {
-    searchQuery := "%" + query + "%"
-    rows, err := pg.db.Query(`
-        SELECT p.post_id, p.title, p.content, p.post_date, p.post_time, sa.name AS admin_name
-        FROM posts p
-        JOIN system_admin sa ON p.admin_id = sa.admin_id
-        WHERE CONCAT(p.title, ' ', p.content, ' ', sa.name) LIKE ?
-        LIMIT ? OFFSET ?
-    `, searchQuery, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"title": bson.M{"$regex": query, "$options": "i"}},
+            {"content": bson.M{"$regex": query, "$options": "i"}},
+        },
+    }
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := pg.collection.Find(ctx, filter, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var posts []models.Post
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var post models.Post
-        if err := rows.Scan(&post.ID, &post.Title, &post.Content, &post.PostDate, &post.PostTime, &post.AdminName); err != nil {
+        if err := cursor.Decode(&post); err != nil {
             return nil, err
         }
         posts = append(posts, post)
@@ -62,48 +76,37 @@ func (pg *PostGateway) SearchPosts(query string, limit, offset int) ([]models.Po
 }
 
 func (pg *PostGateway) GetTotalPostCount(query string) (int, error) {
-    var row *sql.Row
-    if query != "" {
-        searchQuery := "%" + query + "%"
-        row = pg.db.QueryRow(`
-            SELECT COUNT(*)
-            FROM posts p
-            JOIN system_admin sa ON p.admin_id = sa.admin_id
-            WHERE CONCAT(p.title, ' ', p.content, ' ', sa.name) LIKE ?
-        `, searchQuery)
-    } else {
-        row = pg.db.QueryRow("SELECT COUNT(*) FROM posts")
-    }
-
-    var count int
-    err := row.Scan(&count)
-    if err != nil {
-        return 0, err
-    }
-
-    return count, nil
+    return 0, nil
 }
 
 func (pg *PostGateway) CreatePost(post *models.Post) error {
-    _, err := pg.db.Exec(
-        `INSERT INTO posts (title, content, post_date, post_time, admin_id) 
-        VALUES (?, ?, ?, ?, 
-        (SELECT admin_id FROM system_admin WHERE name = ?)
-        )`,
-        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminName)
+    _, err := pg.collection.InsertOne(context.Background(),
+        bson.M{
+            "title": post.Title,
+            "content": post.Content,
+            "post_date": post.PostDate,
+            "post_time": post.PostTime,
+            "admin_name": post.AdminName,
+        })
     return err
 }
 
 func (pg *PostGateway) UpdatePost(post *models.Post) error {
-    _, err := pg.db.Exec(
-        `UPDATE posts SET title = ?, content = ?, post_date = ?, post_time = ?, 
-         admin_id = (SELECT admin_id FROM system_admin WHERE name = ?) 
-         WHERE post_id = ?`,
-        post.Title, post.Content, post.PostDate, post.PostTime, post.AdminName, post.ID)
+    _, err := pg.collection.UpdateOne(context.Background(),
+        bson.M{"post_id": post.ID},
+        bson.M{
+            "$set": bson.M{
+                "title": post.Title,
+                "content": post.Content,
+                "post_date": post.PostDate,
+                "post_time": post.PostTime,
+                "admin_name": post.AdminName,
+            },
+        })
     return err
 }
 
 func (pg *PostGateway) DeletePost(postID string) error {
-    _, err := pg.db.Exec("DELETE FROM posts WHERE post_id = ?", postID)
+    _, err := pg.collection.DeleteOne(context.Background(), bson.M{"post_id": postID})
     return err
 }

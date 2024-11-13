@@ -1,12 +1,12 @@
 package models
 
 type DialysisAppointment struct {
-    ID        int    `json:"id" db:"appointment_id"`
-    Date      string `json:"date" db:"date"`
-    Time      string `json:"time" db:"time"`
-    Status    string `json:"status" db:"status"`
-    PatientID int    `json:"patient_id,omitempty" db:"patient_id"`
-    StaffID   int    `json:"staff_id,omitempty" db:"staff_id"`
-    StaffName string `json:"staff_name,omitempty" db:"staff_name"`
-    PatientName string `json:"patient_name,omitempty" db:"patient_name"`
+    ID          int    `json:"id" bson:"appointment_id"`
+    Date        string `json:"date" bson:"date"`
+    Time        string `json:"time" bson:"time"`
+    Status      string `json:"status" bson:"status"`
+    PatientID   int    `json:"patient_id,omitempty" bson:"patient_id"`
+    StaffID     int    `json:"staff_id,omitempty" bson:"staff_id"`
+    StaffName   string `json:"staff_name,omitempty" bson:"staff_name"`
+    PatientName string `json:"patient_name,omitempty" bson:"patient_name"`
 }

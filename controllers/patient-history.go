@@ -8,14 +8,14 @@ import (
     "path/filepath"
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
 )
 
 type PatientHistoryController struct {
     PatientHistoryGateway *gateways.PatientHistoryGateway
 }
 
-func NewPatientHistoryController(db *sql.DB) *PatientHistoryController {
+func NewPatientHistoryController(db *mongo.Database) *PatientHistoryController {
     return &PatientHistoryController{
         PatientHistoryGateway: gateways.NewPatientHistoryGateway(db),
     }

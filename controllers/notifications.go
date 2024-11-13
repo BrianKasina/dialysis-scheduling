@@ -7,7 +7,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
     "github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 )
 
@@ -15,7 +15,7 @@ type NotificationController struct {
     NotificationGateway *gateways.NotificationGateway
 }
 
-func NewNotificationController(db *sql.DB) *NotificationController {
+func NewNotificationController(db *mongo.Database) *NotificationController {
     return &NotificationController{
         NotificationGateway: gateways.NewNotificationGateway(db),
     }

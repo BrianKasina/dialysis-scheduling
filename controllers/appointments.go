@@ -6,7 +6,7 @@ import (
     "math"
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
 )
 
 // AppointmentController struct to manage both dialysis and nephrologist appointments
@@ -16,7 +16,7 @@ type AppointmentController struct {
 }
 
 // NewAppointmentController creates a new AppointmentController instance
-func NewAppointmentController(db *sql.DB) *AppointmentController {
+func NewAppointmentController(db *mongo.Database) *AppointmentController {
     return &AppointmentController{
         DialysisGateway:     gateways.NewDialysisGateway(db),
         NephrologistGateway: gateways.NewNephrologistAppointmentGateway(db),

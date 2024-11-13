@@ -7,7 +7,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
     "github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 )
 
@@ -15,7 +15,7 @@ type PaymentDetailsController struct {
     PaymentDetailsGateway *gateways.PaymentDetailsGateway
 }
 
-func NewPaymentDetailsController(db *sql.DB) *PaymentDetailsController {
+func NewPaymentDetailsController(db *mongo.Database) *PaymentDetailsController {
     return &PaymentDetailsController{
         PaymentDetailsGateway: gateways.NewPaymentDetailsGateway(db),
     }

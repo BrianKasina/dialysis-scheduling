@@ -1,7 +1,11 @@
 package gateways
 
 import (
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "context"
+    "time"
+    "go.mongodb.org/mongo-driver/bson"
     "encoding/json"
     "net/http"
     "github.com/BrianKasina/dialysis-scheduling/models"
@@ -10,63 +14,72 @@ import (
 )
 
 type NephrologistAppointmentGateway struct {
-    db *sql.DB
+    collection *mongo.Collection
+    collection2 *mongo.Collection
 }
 
 // Initialize Nephrologist Gateway
-func NewNephrologistAppointmentGateway(db *sql.DB) *NephrologistAppointmentGateway {
-    return &NephrologistAppointmentGateway{db: db}
+func NewNephrologistAppointmentGateway(db *mongo.Database) *NephrologistAppointmentGateway {
+    return &NephrologistAppointmentGateway{
+        collection: db.Collection("nephrologist_appointments"),
+        collection2: db.Collection("patients"),
+    }
 }
 
 // Retrieve nephrologist appointments with joined patient and staff data
 func (ng *NephrologistAppointmentGateway) GetAppointments(limit, offset int) ([]models.NephrologistAppointment, error) {
-    rows, err := ng.db.Query(`
-        SELECT na.appointment_id, na.date, na.time, na.status, p.name AS patient_name, s.name AS staff_name
-        FROM nephrologist_appointment na
-        JOIN patient p ON na.patient_id = p.patient_id
-        JOIN hospital_staff s ON na.staff_id = s.staff_id
-        LIMIT ? OFFSET ? 
-    `, limit ,offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := ng.collection.Find(ctx, bson.M{}, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var appointments []models.NephrologistAppointment
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var appointment models.NephrologistAppointment
-        if err := rows.Scan(&appointment.ID, &appointment.Date, &appointment.Time, &appointment.Status, &appointment.PatientName, &appointment.StaffName); err != nil {
+        if err := cursor.Decode(&appointment); err != nil {
             return nil, err
         }
         appointments = append(appointments, appointment)
     }
-
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-
     return appointments, nil
 }
 
 // SearchAppointments searches for nephrologist appointments based on a query
 func (ng *NephrologistAppointmentGateway) SearchAppointments(query string, limit, offset int ) ([]models.NephrologistAppointment, error) {
-    searchQuery := "%" + query + "%"
-    rows, err := ng.db.Query(`
-        SELECT na.appointment_id, na.date, na.time, na.status, p.name AS patient_name, s.name AS staff_name
-        FROM nephrologist_appointment na
-        JOIN patient p ON na.patient_id = p.patient_id
-        JOIN hospital_staff s ON na.staff_id = s.staff_id
-        WHERE CONCAT(na.date, ' ', na.time, ' ', p.name, ' ', s.name) LIKE ? LIMIT ? OFFSET ?
-    `, searchQuery, limit, offset)
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"date": bson.M{"$regex": query, "$options": "i"}},
+            {"time": bson.M{"$regex": query, "$options": "i"}},
+            {"status": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+            {"staff_name": bson.M{"$regex": query, "$options": "i"}},
+        },
+    }
+    opts := options.Find()
+    opts.SetLimit(int64(limit))
+    opts.SetSkip(int64(offset))
+
+    cursor, err := ng.collection.Find(ctx, filter, opts)
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer cursor.Close(ctx)
 
     var appointments []models.NephrologistAppointment
-    for rows.Next() {
+    for cursor.Next(ctx) {
         var appointment models.NephrologistAppointment
-        if err := rows.Scan(&appointment.ID, &appointment.Date, &appointment.Time, &appointment.Status, &appointment.PatientName, &appointment.StaffName); err != nil {
+        if err := cursor.Decode(&appointment); err != nil {
             return nil, err
         }
         appointments = append(appointments, appointment)
@@ -75,31 +88,31 @@ func (ng *NephrologistAppointmentGateway) SearchAppointments(query string, limit
 }
 
 func (ng *NephrologistAppointmentGateway) GetTotalNephrologistAppointmentCount(query string) (int, error) {
-    var row *sql.Row
-    if query != "" {
-        searchQuery := "%" + query + "%"
-        row = ng.db.QueryRow(`
-            SELECT COUNT(*)
-            FROM nephrologist_appointment da
-            JOIN patient p ON da.patient_id = p.patient_id
-            JOIN hospital_staff s ON da.staff_id = s.staff_id
-            WHERE CONCAT(da.date, ' ', da.time, ' ', p.name, ' ', s.name) LIKE ?
-        `, searchQuery)
-    } else {
-        row = ng.db.QueryRow("SELECT COUNT(*) FROM nephrology_appointment")
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{
+        "$or": []bson.M{
+            {"date": bson.M{"$regex": query, "$options": "i"}},
+            {"time": bson.M{"$regex": query, "$options": "i"}},
+            {"status": bson.M{"$regex": query, "$options": "i"}},
+            {"patient_name": bson.M{"$regex": query, "$options": "i"}},
+            {"staff_name": bson.M{"$regex": query, "$options": "i"}},
+        },
     }
 
-    var count int
-    err := row.Scan(&count)
+    count, err := ng.collection.CountDocuments(ctx, filter)
     if err != nil {
         return 0, err
     }
-
-    return count, nil
+    return int(count), nil
 }
 
 // Create new nephrologist appointment
 func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWriter, r *http.Request) {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
     var appointment models.NephrologistAppointment
     err := json.NewDecoder(r.Body).Decode(&appointment)
     if err != nil {
@@ -107,16 +120,7 @@ func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWrite
         return
     }
 
-    _, err = ng.db.Exec(
-        `INSERT INTO nephrologist_appointment (
-            date, time, status, patient_id, staff_id
-        ) VALUES (
-            ?, ?, ?, 
-            (SELECT patient_id FROM patients WHERE name LIKE ? LIMIT 1), 
-            (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1)
-        )`,
-        appointment.Date, appointment.Time, appointment.Status,appointment.PatientName, appointment.StaffName,
-    )
+    _, err = ng.collection.InsertOne(ctx, appointment)
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to create nephrologist appointment")
         return
@@ -124,11 +128,14 @@ func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWrite
 
     w.WriteHeader(http.StatusCreated)
     json.NewEncoder(w).Encode(appointment)
+
 }
 
 // Update or cancel nephrologist appointment
 func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
-    
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
     var appointment models.NephrologistAppointment
     err := json.NewDecoder(r.Body).Decode(&appointment)
     if err != nil {
@@ -136,12 +143,7 @@ func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWrite
         return
     }
 
-    _, err = ng.db.Exec(
-        `UPDATE nephrologist_appointment SET 
-            date = ?, time = ?, status = ?, 
-            staff_id = (SELECT staff_id FROM hospital_staff WHERE name LIKE ? LIMIT 1) 
-            WHERE appointment_id = ?`,
-        appointment.Date, appointment.Time, appointment.Status, appointment.StaffName, appointment.ID)
+    _, err = ng.collection.UpdateOne(ctx, bson.M{"appointment_id": appointment.ID}, bson.M{"$set": appointment})
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update nephrologist appointment")
         return
@@ -153,10 +155,17 @@ func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWrite
 
 // Delete nephrologist appointment
 func (ng *NephrologistAppointmentGateway) DeleteAppointment(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    id := vars["id"]
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
 
-    _, err := ng.db.Exec("DELETE FROM nephrologist_appointment WHERE appointment_id = ?", id)
+    vars := mux.Vars(r)
+    appointmentID := vars["id"]
+    if appointmentID == "" {
+        utils.ErrorHandler(w, http.StatusBadRequest, nil, "Missing appointment ID")
+        return
+    }
+
+    _, err := ng.collection.DeleteOne(ctx, bson.M{"appointment_id": appointmentID})
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to delete nephrologist appointment")
         return

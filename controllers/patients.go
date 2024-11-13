@@ -7,7 +7,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
 	"github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 )
 
@@ -15,7 +15,7 @@ type PatientController struct {
     PatientGateway *gateways.PatientGateway
 }
 
-func NewPatientController(db *sql.DB) *PatientController {
+func NewPatientController(db *mongo.Database) *PatientController {
     return &PatientController{
         PatientGateway: gateways.NewPatientGateway(db),
     }
@@ -34,16 +34,8 @@ func (pc *PatientController) GetPatients(w http.ResponseWriter, r *http.Request)
     var err error
 
     switch identifier {
-    case "withPayment":
-        patients, err = pc.PatientGateway.GetPatientsWithPayment( limit, offset )
-    case "withDialysisAppointments":
-        patients, err = pc.PatientGateway.GetPatientsWithDialysisAppointments( limit, offset )
-    case "withNephrologistAppointments":
-        patients, err = pc.PatientGateway.GetPatientsWithNephrologistAppointments( limit, offset )
-    case "withNotifications":
-        patients, err = pc.PatientGateway.GetPatientsWithNotifications( limit, offset )
-    case "withHistories":
-        patients, err = pc.PatientGateway.GetPatientsWithHistories( limit, offset )
+    case "history":
+        patients, err = pc.PatientGateway.GetPatientsWithHistory( limit, offset )
 	case "search":
         name := r.URL.Query().Get("name")
         if name == "" {

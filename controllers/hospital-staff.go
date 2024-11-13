@@ -6,7 +6,7 @@ import (
     "github.com/BrianKasina/dialysis-scheduling/gateways"
     "github.com/BrianKasina/dialysis-scheduling/utils"
     "github.com/BrianKasina/dialysis-scheduling/models"
-    "database/sql"
+    "go.mongodb.org/mongo-driver/mongo"
     "github.com/gorilla/mux"
 	"math"
 )
@@ -15,7 +15,7 @@ type HospitalStaffController struct {
     HospitalStaffGateway *gateways.HospitalStaffGateway
 }
 
-func NewHospitalStaffController(db *sql.DB) *HospitalStaffController {
+func NewHospitalStaffController(db *mongo.Database) *HospitalStaffController {
     return &HospitalStaffController{
         HospitalStaffGateway: gateways.NewHospitalStaffGateway(db),
     }
