@@ -1,16 +1,18 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
-    "encoding/json"
-    "net/http"
-    "github.com/BrianKasina/dialysis-scheduling/models"
-    "github.com/BrianKasina/dialysis-scheduling/utils"
-    "github.com/gorilla/mux"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"github.com/BrianKasina/dialysis-scheduling/utils"
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type NephrologistAppointmentGateway struct {
@@ -132,25 +134,31 @@ func (ng *NephrologistAppointmentGateway) CreateAppointment(w http.ResponseWrite
 }
 
 // Update or cancel nephrologist appointment
-func (ng *NephrologistAppointmentGateway) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
+func (ng *NephrologistAppointmentGateway) UpdateAppointment(appointment *models.NephrologistAppointment) error {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    var appointment models.NephrologistAppointment
-    err := json.NewDecoder(r.Body).Decode(&appointment)
-    if err != nil {
-        utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
-        return
+    filter := bson.M{"appointment_id": appointment.ID}
+    update := bson.M{
+        "$set": bson.M{
+            "date":         appointment.Date,
+            "time":         appointment.Time,
+            "status":       appointment.Status,
+            "patient_name": appointment.PatientName,
+            "staff_name":   appointment.StaffName,
+        },
     }
 
-    _, err = ng.collection.UpdateOne(ctx, bson.M{"appointment_id": appointment.ID}, bson.M{"$set": appointment})
+    result, err := ng.collection.UpdateOne(ctx, filter, update)
     if err != nil {
-        utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update nephrologist appointment")
-        return
+        return err
     }
 
-    w.WriteHeader(http.StatusOK)
-    json.NewEncoder(w).Encode(appointment)
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no appointment found with ID %d", appointment.ID)
+    }
+
+    return nil
 }
 
 // Delete nephrologist appointment

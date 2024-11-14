@@ -1,12 +1,14 @@
 package controllers
 
 import (
-    "encoding/json"
-    "net/http"
-    "math"
-    "github.com/BrianKasina/dialysis-scheduling/gateways"
-    "github.com/BrianKasina/dialysis-scheduling/utils"
-    "go.mongodb.org/mongo-driver/mongo"
+	"encoding/json"
+	"math"
+	"net/http"
+
+	"github.com/BrianKasina/dialysis-scheduling/gateways"
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"github.com/BrianKasina/dialysis-scheduling/utils"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // AppointmentController struct to manage both dialysis and nephrologist appointments
@@ -109,9 +111,19 @@ func (ac *AppointmentController) UpdateAppointment(w http.ResponseWriter, r *htt
 
     switch appointmentType {
     case "dialysis":
-        ac.DialysisGateway.UpdateAppointment(w, r)
+        var appointment models.DialysisAppointment
+        if err := json.NewDecoder(r.Body).Decode(&appointment); err != nil {
+            utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
+            return
+        }
+        ac.DialysisGateway.UpdateAppointment(&appointment)
     case "nephrologist":
-        ac.NephrologistGateway.UpdateAppointment(w, r)
+        var appointment models.NephrologistAppointment
+        if err := json.NewDecoder(r.Body).Decode(&appointment); err != nil {
+            utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
+            return
+        }
+        ac.NephrologistGateway.UpdateAppointment(&appointment)
     default:
         utils.ErrorHandler(w, http.StatusBadRequest, nil, "Invalid appointment type")
     }

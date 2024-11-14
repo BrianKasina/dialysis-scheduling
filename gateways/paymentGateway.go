@@ -1,12 +1,14 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PaymentDetailsGateway struct {
@@ -91,9 +93,22 @@ func (pg *PaymentDetailsGateway) UpdatePaymentDetail(paymentDetail *models.Payme
     defer cancel()
 
     filter := bson.M{"payment_details_id": paymentDetail.ID}
-    update := bson.M{"$set": paymentDetail}
-    _, err := pg.collection.UpdateOne(ctx, filter, update)
-    return err
+    update := bson.M{
+        "$set": bson.M{
+            "payment_name": paymentDetail.PaymentName,
+        },
+    }
+
+    result, err := pg.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no payment detail found with ID %d", paymentDetail.ID)
+    }
+
+    return nil
 }
 
 func (pg *PaymentDetailsGateway) DeletePaymentDetail(paymentDetailID string) error {

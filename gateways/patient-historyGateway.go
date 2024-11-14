@@ -1,10 +1,12 @@
 package gateways
 
 import (
+	"context"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/bson"
-    "context"
-    "time"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PatientHistoryGateway struct {
@@ -53,6 +55,24 @@ func (phg *PatientHistoryGateway) DeletePatientHistory(patientName string) error
         return err
     }
     return nil
+}
+
+// Add or update patient history files for a specific patient
+func (phg *PatientHistoryGateway) CreateOrUpdatePatientHistory(patientName string, files []string) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    // Update or insert history in `patient_history` collection
+    _, err := phg.collection.UpdateOne(ctx, bson.M{"patient_name": patientName},
+        bson.M{"$set": bson.M{"patient_history_files": files}}, options.Update().SetUpsert(true))
+    if err != nil {
+        return err
+    }
+
+    // Update history reference in `patients` collection
+    _, err = phg.collection2.UpdateOne(ctx, bson.M{"name": patientName},
+        bson.M{"$set": bson.M{"history_files": files}})
+    return err
 }
 
 

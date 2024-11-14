@@ -1,13 +1,15 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
+	"context"
+	"fmt"
+	"time"
 
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
 )
 
 type HospitalStaffGateway struct {
@@ -100,22 +102,31 @@ func (hsg *HospitalStaffGateway) CreateHospitalStaff(member *models.HospitalStaf
     return err
 }
 
-func (hsg *HospitalStaffGateway) UpdateHospitalStaff(member *models.HospitalStaff) error {
+func (hsg *HospitalStaffGateway) UpdateHospitalStaff(staff *models.HospitalStaff) error {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    filter := bson.M{"staff_id": member.ID}
+    filter := bson.M{"staff_id": staff.ID}
     update := bson.M{
         "$set": bson.M{
-            "name": member.Name,
-            "specialization": member.Specialization,
-            "phonenumber": member.PhoneNumber,
-            "status": member.Status,
+            "name":             staff.Name,
+            "phone_number":     staff.PhoneNumber,
+            "gender":           staff.Gender,
+            "status":           staff.Status,
+            "specialization":   staff.Specialization,
         },
+    }
 
-}
-_, err:= hsg.collection.UpdateOne(ctx, filter, update)
-    return err
+    result, err := hsg.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no staff found with ID %d", staff.ID)
+    }
+
+    return nil
 }
 
 func (hsg *HospitalStaffGateway) DeleteHospitalStaff(staffID string) error {

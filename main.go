@@ -155,7 +155,7 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request, endpoint string, c
     case "payment_details":
         controllersMap["payment_details"].(*controllers.PaymentDetailsController).GetPaymentDetails(w, r)
     case "patient_history":
-        controllersMap["patient_history"].(*controllers.PatientHistoryController).OpenPatientHistory(w, r)
+        controllersMap["patient_history"].(*controllers.PatientHistoryController).HandlePatientHistory(w, r)
     default:
         http.Error(w, "Invalid endpoint", http.StatusNotFound)
     }

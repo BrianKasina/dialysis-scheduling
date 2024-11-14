@@ -1,12 +1,14 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type AdminGateway struct {
@@ -113,9 +115,24 @@ func (ag *AdminGateway) UpdateAdmin(admin *models.SystemAdmin) error {
     defer cancel()
 
     filter := bson.M{"admin_id": admin.ID}
-    update := bson.M{"$set": admin}
-    _, err := ag.collection.UpdateOne(ctx, filter, update)
-    return err
+    update := bson.M{
+        "$set": bson.M{
+            "name":        admin.Name,
+            "email":       admin.Email,
+            "phonenumber": admin.PhoneNumber,
+        },
+    }
+
+    result, err := ag.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no admin found with ID %d", admin.ID)
+    }
+
+    return nil
 }
 
 func (ag *AdminGateway) DeleteAdmin(adminID string) error {

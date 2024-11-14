@@ -1,12 +1,14 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PostGateway struct {
@@ -92,18 +94,30 @@ func (pg *PostGateway) CreatePost(post *models.Post) error {
 }
 
 func (pg *PostGateway) UpdatePost(post *models.Post) error {
-    _, err := pg.collection.UpdateOne(context.Background(),
-        bson.M{"post_id": post.ID},
-        bson.M{
-            "$set": bson.M{
-                "title": post.Title,
-                "content": post.Content,
-                "post_date": post.PostDate,
-                "post_time": post.PostTime,
-                "admin_name": post.AdminName,
-            },
-        })
-    return err
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    filter := bson.M{"post_id": post.ID}
+    update := bson.M{
+        "$set": bson.M{
+            "title":      post.Title,
+            "content":    post.Content,
+            "post_date":  post.PostDate,
+            "post_time":  post.PostTime,
+            "admin_name": post.AdminName,
+        },
+    }
+
+    result, err := pg.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no post found with ID %d", post.ID)
+    }
+
+    return nil
 }
 
 func (pg *PostGateway) DeletePost(postID string) error {

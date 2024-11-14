@@ -1,12 +1,14 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "context"
-    "time"
-    "go.mongodb.org/mongo-driver/bson"
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type NotificationGateway struct {
@@ -107,8 +109,28 @@ func (ng *NotificationGateway) UpdateNotification(notification *models.Notificat
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    _, err := ng.collection.ReplaceOne(ctx, bson.M{"notification_id": notification.ID}, notification)
-    return err
+    filter := bson.M{"notification_id": notification.ID}
+    update := bson.M{
+        "$set": bson.M{
+            "message":     notification.Message,
+            "admin_name":  notification.AdminName,
+            "patient_name": notification.PatientName,
+            "sent_date":   notification.SentDate,
+            "sent_time":   notification.SentTime,
+
+        },
+    }
+
+    result, err := ng.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no notification found with ID %d", notification.ID)
+    }
+
+    return nil
 }
 
 func (ng *NotificationGateway) DeleteNotification(notificationID string) error {

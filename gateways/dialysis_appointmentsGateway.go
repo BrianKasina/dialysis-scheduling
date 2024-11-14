@@ -1,16 +1,18 @@
 package gateways
 
 import (
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
-    "go.mongodb.org/mongo-driver/bson"
-    "context"
-    "time"
-    "encoding/json"
-    "net/http"
-    "github.com/BrianKasina/dialysis-scheduling/models"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/BrianKasina/dialysis-scheduling/models"
 	"github.com/BrianKasina/dialysis-scheduling/utils"
-    "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // DialysisGateway handles database operations for dialysis appointments
@@ -111,43 +113,50 @@ func (dg *DialysisGateway) GetTotalDialysisAppointmentCount(query string) (int, 
 func (dg *DialysisGateway) CreateAppointment(w http.ResponseWriter, r *http.Request) {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
-    _, err := dg.collection.InsertOne(ctx, bson.M{
-        "appointment_id": r.FormValue("appointment_id"),
-        "date": r.FormValue("date"),
-        "time": r.FormValue("time"),
-        "status": r.FormValue("status"),
-        "staff_name": r.FormValue("staff_name"),
-        "patient_name": r.FormValue("patient_name"),
-    })
+
+    var appointment models.DialysisAppointment
+    err := json.NewDecoder(r.Body).Decode(&appointment)
+    if err != nil {
+        utils.ErrorHandler(w, http.StatusBadRequest, err, "Invalid request payload")
+        return
+    }
+
+    _, err = dg.collection.InsertOne(ctx, appointment)
     if err != nil {
         utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to create dialysis appointment")
         return
     }
 
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(appointment)
+
 }
 
-// UpdateAppointment updates an existing dialysis appointment
-func (dg *DialysisGateway) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
+func (dg *DialysisGateway) UpdateAppointment(appointment *models.DialysisAppointment) error {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
-    vars := mux.Vars(r)
-    appointmentID := vars["id"]
 
-    _, err := dg.collection.UpdateOne(ctx, bson.M{"appointment_id": appointmentID}, bson.M{
+    filter := bson.M{"appointment_id": appointment.ID}
+    update := bson.M{
         "$set": bson.M{
-            "date": r.FormValue("date"),
-            "time": r.FormValue("time"),
-            "status": r.FormValue("status"),
-            "staff_name": r.FormValue("staff_name"),
-            "patient_name": r.FormValue("patient_name"),
+            "date":         appointment.Date,
+            "time":         appointment.Time,
+            "status":       appointment.Status,
+            "staff_name":   appointment.StaffName,
+            "patient_name": appointment.PatientName,
         },
-    })
-    if err != nil {
-        utils.ErrorHandler(w, http.StatusInternalServerError, err, "Failed to update dialysis appointment")
-        return
     }
 
-    json.NewEncoder(w).Encode(map[string]string{"message": "Dialysis appointment updated successfully"})
+    result, err := dg.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    if result.MatchedCount == 0 {
+        return fmt.Errorf("no appointment found with ID %d", appointment.ID)
+    }
+
+    return nil
 }
 
 // DeleteAppointment deletes a dialysis appointment by its ID
