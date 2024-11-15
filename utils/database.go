@@ -13,12 +13,13 @@ type Database struct {
     Host     string
     Name     string
     User     string
+    Port     string
     Password string
     Client   *mongo.Client
 }
 
-func NewDatabase(host, name, user, password string) (*Database, error) {
-    db := &Database{Host: host, Name: name, User: user, Password: password}
+func NewDatabase(port,host, name, user, password string) (*Database, error) {
+    db := &Database{Host: host, Name: name, User: user, Password: password, Port: port}
     err := db.connect()
     if err != nil {
         return nil, err
@@ -31,7 +32,8 @@ func (db *Database) connect() error {
     serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 
     // Format the URI with the necessary credentials and options
-    uri := fmt.Sprintf("mongodb+srv://Andretenan75:Archimedes123@dialysis-database.pbt7o.mongodb.net/")
+    uri := fmt.Sprintf("mongodb+srv://%s:%s@%s.pbt7o.mongodb.net/?retryWrites=true&w=majority&appName=dialysis-database",
+    db.User, db.Password, db.Name)
 
     clientOptions := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
 
