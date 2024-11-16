@@ -9,9 +9,7 @@ import (
 	"os"
 	"github.com/BrianKasina/dialysis-scheduling/controllers"
 	"github.com/BrianKasina/dialysis-scheduling/utils"
-	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
-)
+	"github.com/gorilla/mux")
 
 // Middleware to extract pagination parameters
 func paginationMiddleware(next http.Handler) http.Handler {
@@ -50,11 +48,11 @@ func setJSONContentType(next http.Handler) http.Handler {
 }
 
 func main() {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file: %v", err)
-	}
+	// // Load environment variables from .env file
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatal("Error loading .env file: %v", err)
+	// }
 
 	// Load environment variables
 	dbHost := os.Getenv("MONGO_HOST")
