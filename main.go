@@ -92,6 +92,7 @@ func main() {
 	router := mux.NewRouter()
 
 	// Apply middleware to set Content-Type header
+	router.Use(utils.CorsMiddleware)
 	router.Use(setJSONContentType)
 	router.Use(paginationMiddleware)
 
