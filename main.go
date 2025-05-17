@@ -132,7 +132,7 @@ func main() {
 			utils.ErrorHandler(w, http.StatusMethodNotAllowed, errors.New("invalid method"), "Method not allowed")
 		}
 
-	}).Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete)
+	}).Methods(http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
